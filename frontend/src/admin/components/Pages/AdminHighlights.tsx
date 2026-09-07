@@ -12,6 +12,8 @@ import HighlightFormModal from "../../components/common/HighlightFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import HighlightImagePreviewModal from "../../components/common/HighlightImagePreviewModal";
 import VideoPreviewModal from "../../components/common/VideoPreviewModal";
+import AdminPagination from "../../components/common/AdminPagination";
+import usePagination from "../../../hooks/usePagination";
 import type { HighlightFormValues } from "../../../types/admintypes";
 import {
   getHighlights,
@@ -43,6 +45,17 @@ const AdminHighlights = () => {
   const filtered = highlights.filter((h) =>
     h.title.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedHighlights,
+    setCurrentPage,
+  } = usePagination(filtered, { pageSize: 8 });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   useEffect(() => {
     const fetchHighlights = async () => {
@@ -236,7 +249,7 @@ const AdminHighlights = () => {
           </div>
         ) : filtered.length > 0 ? (
           <div className="flex flex-col divide-y divide-white/5">
-            {filtered.map((highlight) => (
+            {paginatedHighlights.map((highlight) => (
               <div
                 key={highlight.id}
                 className="grid grid-cols-[64px_1fr_auto] sm:grid-cols-[64px_1.5fr_120px_1fr_auto] gap-4 px-5 py-3 items-center"
@@ -326,6 +339,14 @@ const AdminHighlights = () => {
               NO HIGHLIGHTS FOUND
             </p>
           </div>
+        )}
+
+        {filtered.length > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 

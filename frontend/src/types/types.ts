@@ -154,3 +154,7 @@ export type CloudinaryUploadResult = {
   public_id: string;
   resource_type: "image" | "video";
 };
+
+export type UsePaginationOptions = {
+  pageSize?: number;
+};

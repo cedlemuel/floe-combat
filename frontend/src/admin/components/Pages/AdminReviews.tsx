@@ -12,6 +12,8 @@ import type { Product, Review } from "../../../types/types";
 import type { ReviewFormValues } from "../../../types/admintypes";
 import ReviewFormModal from "../../components/common/ReviewFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
+import AdminPagination from "../../components/common/AdminPagination";
+import usePagination from "../../../hooks/usePagination";
 import {
   createAdminReview,
   deleteReview,
@@ -60,6 +62,24 @@ const AdminReviews = () => {
       ratingFilter === "ALL" || r.rating === Number(ratingFilter);
     return matchesSearch && matchesRating;
   });
+
+  const {
+    currentPage: pendingPage,
+    totalPages: pendingTotalPages,
+    paginatedItems: paginatedPending,
+    setCurrentPage: setPendingPage,
+  } = usePagination(pending, { pageSize: 8 });
+
+  const {
+    currentPage: approvedPage,
+    totalPages: approvedTotalPages,
+    paginatedItems: paginatedApproved,
+    setCurrentPage: setApprovedPage,
+  } = usePagination(filteredApproved, { pageSize: 9 });
+
+  useEffect(() => {
+    setApprovedPage(1);
+  }, [search, ratingFilter]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -289,7 +309,7 @@ const AdminReviews = () => {
         <div className="border border-borderColor bg-white/2 overflow-hidden">
           {pending.length > 0 ? (
             <div className="flex flex-col divide-y divide-white/5">
-              {pending.map((review) => (
+              {paginatedPending.map((review) => (
                 <div
                   key={review.id}
                   className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4"
@@ -357,6 +377,14 @@ const AdminReviews = () => {
               </p>
             </div>
           )}
+
+          {pending.length > 0 && (
+            <AdminPagination
+              currentPage={pendingPage}
+              totalPages={pendingTotalPages}
+              onPageChange={setPendingPage}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -407,7 +435,7 @@ const AdminReviews = () => {
 
             {filteredApproved.length > 0 ? (
               <div className="flex flex-col divide-y divide-white/5">
-                {filteredApproved.map((review) => (
+                {paginatedApproved.map((review) => (
                   <div
                     key={review.id}
                     className="grid grid-cols-[48px_1fr_auto] sm:grid-cols-[48px_1.3fr_1fr_0.8fr_auto_auto] gap-4 px-5 py-3 items-center"
@@ -492,6 +520,14 @@ const AdminReviews = () => {
                   NO REVIEWS FOUND
                 </p>
               </div>
+            )}
+
+            {filteredApproved.length > 0 && (
+              <AdminPagination
+                currentPage={approvedPage}
+                totalPages={approvedTotalPages}
+                onPageChange={setApprovedPage}
+              />
             )}
           </div>
         </>

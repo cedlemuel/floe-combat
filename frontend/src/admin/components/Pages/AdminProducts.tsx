@@ -5,6 +5,8 @@ import type { Product } from "../../../types/types";
 import ProductFormModal from "../../components/common/ProductFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import ImagePreviewModal from "../../components/common/ImagePreviewModal";
+import AdminPagination from "../../components/common/AdminPagination";
+import usePagination from "../../../hooks/usePagination";
 import {
   getProducts,
   createProduct,
@@ -56,6 +58,17 @@ const AdminProducts = () => {
       categoryFilter === "ALL" || p.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedProducts,
+    setCurrentPage,
+  } = usePagination(filtered, { pageSize: 8 });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -222,9 +235,9 @@ const AdminProducts = () => {
             <span className="text-right">ACTIONS</span>
           </div>
 
-          {filtered.length > 0 ? (
+          {paginatedProducts.length > 0 ? (
             <div className="flex flex-col divide-y divide-white/5">
-              {filtered.map((product) => (
+              {paginatedProducts.map((product) => (
                 <div
                   key={product.id}
                   className="grid grid-cols-[64px_1fr_auto] sm:grid-cols-[64px_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 items-center"
@@ -306,6 +319,14 @@ const AdminProducts = () => {
                 NO PRODUCTS FOUND
               </p>
             </div>
+          )}
+
+          {filtered.length > 0 && (
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
       )}
