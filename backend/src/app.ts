@@ -4,7 +4,6 @@ import productRoutes from "./routes/product.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import pool from "./db/pool.js";
-import adminActivityRoutes from "./routes/admin.routes.js";
 import highlightRoutes from "./routes/highlight.routes.js";
 import { uploadErrorHandler } from "./middleware/upload.error.middleware.js";
 import reviewRoutes from "./routes/review.routes.js";
@@ -38,7 +37,6 @@ app.get("/api/health/database", async (_req, res) => {
 });
 
 app.use("/api/admin", adminRoutes);
-app.use("/api/admin/activities", adminActivityRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/highlights", highlightRoutes);

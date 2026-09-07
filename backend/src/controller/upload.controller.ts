@@ -1,5 +1,30 @@
 import type { Request, Response } from "express";
 import { v2 as cloudinary } from "cloudinary";
+import { uploadProductImage } from "../service/cloudinary.service.js";
+
+const uploadImageController = async (req: Request, res: Response) => {
+  if (!req.file) {
+    return res.status(400).json({
+      message: "Please send an image using the field name 'image'.",
+    });
+  }
+
+  try {
+    const uploadedImage = await uploadProductImage(req.file.buffer);
+
+    return res.status(201).json({
+      message: "Image uploaded successfully.",
+      imageUrl: uploadedImage.imageUrl,
+      publicId: uploadedImage.publicId,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Image upload failed.",
+    });
+  }
+};
 
 const createUploadSignatureController = (req: Request, res: Response) => {
   const { purpose } = req.body;
@@ -41,4 +66,4 @@ const createUploadSignatureController = (req: Request, res: Response) => {
   });
 };
 
-export { createUploadSignatureController };
+export { createUploadSignatureController, uploadImageController };
