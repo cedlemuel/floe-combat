@@ -8,8 +8,10 @@ import highlightRoutes from "./routes/highlight.routes.js";
 import { uploadErrorHandler } from "./middleware/upload.error.middleware.js";
 import reviewRoutes from "./routes/review.routes.js";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 const app = express();
+app.use(helmet());
 
 app.use(
   cors({
