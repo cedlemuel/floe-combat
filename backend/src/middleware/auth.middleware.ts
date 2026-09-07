@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+
 import type { AuthAdmin } from "../types/admin.js";
 
 const authMiddleware = (
@@ -8,22 +9,12 @@ const authMiddleware = (
   next: NextFunction,
 ) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = req.cookies.adminToken;
 
-    if (!authHeader) {
+    if (!token) {
       res.status(401).json({
         success: false,
         message: "Authentication required.",
-      });
-      return;
-    }
-
-    const [scheme, token] = authHeader.split(" ");
-
-    if (scheme !== "Bearer" || !token) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid authorization header.",
       });
       return;
     }

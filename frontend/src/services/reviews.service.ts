@@ -10,16 +10,8 @@ import type {
 const API_URL = import.meta.env.VITE_API_URL;
 
 const getAdminReviews = async (): Promise<Review[]> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/reviews/admin`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   const data: ReviewsResponse = await response.json();
@@ -35,18 +27,12 @@ const updateReviewStatus = async (
   id: number,
   status: "approved" | "rejected",
 ): Promise<Review> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/reviews/admin/${id}/status`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify({
       status,
     }),
@@ -62,17 +48,9 @@ const updateReviewStatus = async (
 };
 
 const deleteReview = async (id: number): Promise<Review> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/reviews/admin/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   const data: ReviewResponse = await response.json();
@@ -87,18 +65,12 @@ const deleteReview = async (id: number): Promise<Review> => {
 const createAdminReview = async (
   review: CreateReviewInput,
 ): Promise<Review> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/reviews/admin`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify({
       author: review.author,
       role: review.role,
@@ -123,18 +95,12 @@ const updateAdminReview = async (
   id: number,
   review: UpdateReviewInput,
 ): Promise<Review> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/reviews/admin/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify({
       author: review.author,
       role: review.role,
@@ -198,27 +164,26 @@ const updateReviewFeatured = async (
   id: number,
   featured: boolean,
 ): Promise<Review> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
-  const response = await fetch(`${API_URL}/reviews/admin/${id}/featured`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const response = await fetch(
+    `${API_URL}/reviews/admin/${id}/featured`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        featured,
+      }),
     },
-    body: JSON.stringify({
-      featured,
-    }),
-  });
+  );
 
   const data: ReviewResponse = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to update featured status.");
+    throw new Error(
+      data.message || "Failed to update featured status.",
+    );
   }
 
   return data.result;

@@ -23,14 +23,12 @@ const getHighlights = async (): Promise<Highlight[]> => {
 const createHighlight = async (
   highlight: CreateHighlightInput,
 ): Promise<Highlight> => {
-  const token = localStorage.getItem("adminToken");
-
   const response = await fetch(`${API_URL}/highlights`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(highlight),
   });
 
@@ -47,14 +45,12 @@ const updateHighlight = async (
   id: number,
   highlight: UpdateHighlightInput,
 ): Promise<Highlight> => {
-  const token = localStorage.getItem("adminToken");
-
   const response = await fetch(`${API_URL}/highlights/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(highlight),
   });
 
@@ -68,17 +64,9 @@ const updateHighlight = async (
 };
 
 const deleteHighlight = async (id: number): Promise<Highlight> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const response = await fetch(`${API_URL}/highlights/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   const data: HighlightResponse = await response.json();

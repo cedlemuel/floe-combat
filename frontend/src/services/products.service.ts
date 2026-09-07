@@ -23,12 +23,6 @@ const getProducts = async (): Promise<Product[]> => {
 const createProduct = async (
   product: ProductInput,
 ): Promise<Product> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const formData = new FormData();
 
   formData.append("title", product.title);
@@ -42,9 +36,7 @@ const createProduct = async (
 
   const response = await fetch(`${API_URL}/products`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
     body: formData,
   });
 
@@ -61,12 +53,6 @@ const updateProduct = async (
   id: number,
   product: UpdateProductInput,
 ): Promise<Product> => {
-  const token = localStorage.getItem("adminToken");
-
-  if (!token) {
-    throw new Error("You are not logged in.");
-  }
-
   const formData = new FormData();
 
   formData.append("title", product.title);
@@ -85,9 +71,7 @@ const updateProduct = async (
 
   const response = await fetch(`${API_URL}/products/${id}`, {
     method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
     body: formData,
   });
 
@@ -100,15 +84,12 @@ const updateProduct = async (
   return data.result;
 };
 
-const deleteProduct = async (id: number): Promise<Product> => {
-  const token = localStorage.getItem("adminToken");
-
+const deleteProduct = async (
+  id: number,
+): Promise<Product> => {
   const response = await fetch(`${API_URL}/products/${id}`, {
     method: "DELETE",
-
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   const data: ProductResponse = await response.json();
@@ -120,4 +101,9 @@ const deleteProduct = async (id: number): Promise<Product> => {
   return data.result;
 };
 
-export { getProducts, createProduct, updateProduct, deleteProduct };
+export {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+};

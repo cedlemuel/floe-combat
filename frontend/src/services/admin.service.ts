@@ -8,11 +8,10 @@ const loginAdmin = async ({
 }: AdminLoginInput): Promise<AdminLoginResponse> => {
   const response = await fetch(`${API_URL}/admin/login`, {
     method: "POST",
-
     headers: {
       "Content-Type": "application/json",
     },
-
+    credentials: "include",
     body: JSON.stringify({
       email,
       password,
@@ -28,4 +27,17 @@ const loginAdmin = async ({
   return data;
 };
 
-export { loginAdmin };
+const logoutAdmin = async (): Promise<void> => {
+  const response = await fetch(`${API_URL}/admin/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Logout failed.");
+  }
+};
+
+export { loginAdmin, logoutAdmin };

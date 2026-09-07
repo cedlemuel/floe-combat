@@ -2,8 +2,7 @@ import { useState, type SubmitEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+import { loginAdmin } from "../../services/admin.service";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,46 +13,32 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: SubmitEvent<HTMLFormElement>,
+  ) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     setError("");
-    setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${API_URL}/admin/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+      setIsSubmitting(true);
+
+      await loginAdmin({
+        email,
+        password,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message ?? "Invalid email or password.");
-        return;
-      }
-
-      localStorage.setItem("adminToken", data.result.token);
-
-      localStorage.setItem(
-        "admin",
-        JSON.stringify({
-          id: data.result.id,
-          email: data.result.email,
-        }),
-      );
 
       navigate("/admin/dashboard", {
         replace: true,
       });
-    } catch {
-      setError("Couldn't reach the server. Is the backend running?");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Couldn't reach the server.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -78,7 +63,7 @@ const Login = () => {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="font-montserrat text-[11px] tracking-wider text-white/40">
-              USERNAME
+              EMAIL
             </label>
 
             <input
@@ -87,7 +72,7 @@ const Login = () => {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="username"
+              placeholder="admin@example.com"
               className="bg-white/2 border border-white/10 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-floesky/40"
             />
           </div>
@@ -110,8 +95,14 @@ const Login = () => {
 
               <button
                 type="button"
-                onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() =>
+                  setShowPassword((value) => !value)
+                }
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition"
               >
                 {showPassword ? (

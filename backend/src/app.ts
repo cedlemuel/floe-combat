@@ -7,16 +7,19 @@ import pool from "./db/pool.js";
 import highlightRoutes from "./routes/highlight.routes.js";
 import { uploadErrorHandler } from "./middleware/upload.error.middleware.js";
 import reviewRoutes from "./routes/review.routes.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 
 app.use(
   cors({
     origin: process.env.FRONTEND_URL,
+    credentials: true,
   }),
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/api/health/database", async (_req, res) => {
   try {

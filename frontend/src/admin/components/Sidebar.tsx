@@ -8,8 +8,13 @@ import ThemeToggle from "../../Components/Navbar/ThemeToggle";
 import type { SidebarProps } from "../../types/adminprops";
 import { useEffect, useState } from "react";
 import { getAdminReviews } from "../../services/reviews.service";
+import { FaSignOutAlt } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { logoutAdmin } from "../../services/admin.service";
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
+  const navigate = useNavigate();
+
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-5 py-2.5 border-l-2 transition-colors ${
       isActive
@@ -18,6 +23,20 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }`;
 
   const location = useLocation();
+
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await logoutAdmin();
+
+      navigate("/admin/login", {
+        replace: true,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
@@ -136,15 +155,34 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           </NavLink>
         </nav>
 
-        <div className="px-5 py-4 border-t border-borderColor flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-floesky/10 text-floesky flex items-center justify-center font-archivo text-xs font-bold">
+        <div className="relative px-5 py-4 border-t border-borderColor flex items-center gap-2">
+          {isAccountMenuOpen && (
+            <div className="absolute bottom-full left-5 right-5 mb-2 border border-borderColor bg-black shadow-lg">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-3 font-montserrat text-xs text-red-400 hover:bg-white/5 transition"
+              >
+                <FaSignOutAlt size={14} />
+
+                <span>LOGOUT</span>
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+            className="flex-1 flex items-center gap-2 text-left"
+          >
+            <div className="w-7 h-7 rounded-full bg-floesky/10 text-floesky flex items-center justify-center font-archivo text-xs font-bold cursor-pointer">
               A
             </div>
+
             <span className="font-montserrat text-xs text-descText2 tracking-wider">
               Admin
             </span>
-          </div>
+          </button>
 
           <ThemeToggle size={20} />
         </div>

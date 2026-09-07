@@ -6,39 +6,25 @@ export const uploadToCloudinary = async (
   file: File,
   purpose: UploadPurpose,
 ): Promise<CloudinaryUploadResult> => {
-  const token = localStorage.getItem("adminToken");
-
-  const signatureResponse = await fetch(
-    `${API_URL}/uploads/signature`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ purpose }),
+  const signatureResponse = await fetch(`${API_URL}/uploads/signature`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    credentials: "include",
+    body: JSON.stringify({ purpose }),
+  });
 
   const signatureData = await signatureResponse.json();
 
   if (!signatureResponse.ok) {
-    throw new Error(
-      signatureData.message ?? "Could not prepare upload.",
-    );
+    throw new Error(signatureData.message ?? "Could not prepare upload.");
   }
 
-  const {
-    timestamp,
-    signature,
-    folder,
-    cloudName,
-    apiKey,
-  } = signatureData.result;
+  const { timestamp, signature, folder, cloudName, apiKey } =
+    signatureData.result;
 
-  const resourceType = file.type.startsWith("video/")
-    ? "video"
-    : "image";
+  const resourceType = file.type.startsWith("video/") ? "video" : "image";
 
   const formData = new FormData();
 
@@ -59,9 +45,7 @@ export const uploadToCloudinary = async (
   const uploadData = await uploadResponse.json();
 
   if (!uploadResponse.ok) {
-    throw new Error(
-      uploadData.error?.message ?? "Cloudinary upload failed.",
-    );
+    throw new Error(uploadData.error?.message ?? "Cloudinary upload failed.");
   }
 
   return {
