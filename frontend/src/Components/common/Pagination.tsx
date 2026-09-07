@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaArrowLeftLong, FaArrowRightLong } from "react-icons/fa6";
 import type { PaginationProps } from "../../types/props";
 
 const Pagination = ({
@@ -9,111 +9,69 @@ const Pagination = ({
 }: PaginationProps) => {
   if (totalPages <= 1) return null;
 
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      onPageChange(currentPage - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      onPageChange(currentPage + 1);
-    }
+  const goTo = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    onPageChange(page);
   };
 
   return (
-    <>
-      {/* Previous arrow */}
-      <button
-        onClick={handlePrevious}
+    <div className="flex items-center justify-center gap-5 sm:gap-7 pt-10 sm:pt-14 mt-2 w-full">
+      <motion.button
+        type="button"
+        onClick={() => goTo(currentPage - 1)}
         disabled={currentPage === 1}
+        whileHover={currentPage !== 1 ? { x: -3 } : undefined}
+        whileTap={currentPage !== 1 ? { scale: 0.9 } : undefined}
         aria-label="Previous page"
-        className="
-          absolute
-          -left-14
-          lg:-left-20
-          top-1/2
-          -translate-y-1/2
-          flex
-          items-center
-          justify-center
-          w-12 h-12
-          text-3xl
-          text-floesky
-          transition
-          hover:scale-110
-          disabled:opacity-30
-          disabled:cursor-not-allowed
-        "
+        className="flex items-center justify-center text-white/30 hover:text-floesky transition disabled:opacity-15 disabled:hover:text-white/30 disabled:cursor-not-allowed"
       >
-        <FaChevronLeft />
-      </button>
+        <FaArrowLeftLong size={13} />
+      </motion.button>
 
-      {/* Next arrow */}
-      <button
-        onClick={handleNext}
-        disabled={currentPage === totalPages}
-        aria-label="Next page"
-        className="
-          absolute
-          -right-14
-          lg:-right-20
-          top-1/2
-          -translate-y-1/2
-          flex
-          items-center
-          justify-center
-          w-12 h-12
-          text-3xl
-          text-floesky
-          transition
-          hover:scale-110
-          disabled:opacity-30
-          disabled:cursor-not-allowed
-        "
-      >
-        <FaChevronRight />
-      </button>
-
-      {/* Page dots */}
       <div
-        className="
-          absolute
-          top-full
-          left-1/2
-          -translate-x-1/2
-          mt-6
-          flex
-          items-center
-          justify-center
-          gap-3
-        "
+        role="group"
+        aria-label={`Page ${currentPage} of ${totalPages}`}
+        className="flex items-center gap-1.5"
       >
-        {Array.from({ length: totalPages }, (_, index) => {
+        {Array.from({ length: totalPages }).map((_, index) => {
           const page = index + 1;
-          const isActive = currentPage === page;
+          const isActive = page === currentPage;
 
           return (
-            <motion.button
+            <button
               key={page}
-              onClick={() => onPageChange(page)}
+              type="button"
+              onClick={() => goTo(page)}
               aria-label={`Go to page ${page}`}
-              animate={{
-                opacity: isActive ? 1 : 0.4,
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 400,
-                damping: 25,
-              }}
-              className={`w-2.5 h-2.5 rounded-full ${
-                isActive ? "bg-floesky" : "bg-white"
+              aria-current={isActive ? "page" : undefined}
+              className={`relative h-0.75 rounded-full bg-white/10 overflow-hidden transition-all duration-300 ease-out ${
+                isActive ? "w-7 sm:w-8" : "w-2.5 hover:bg-white/25"
               }`}
-            />
+            >
+              {isActive && (
+                <motion.span
+                  layoutId="products-pagination-active-segment"
+                  className="absolute inset-0 bg-floesky"
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                />
+              )}
+            </button>
           );
         })}
       </div>
-    </>
+
+      <motion.button
+        type="button"
+        onClick={() => goTo(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        whileHover={currentPage !== totalPages ? { x: 3 } : undefined}
+        whileTap={currentPage !== totalPages ? { scale: 0.9 } : undefined}
+        aria-label="Next page"
+        className="flex items-center justify-center text-white/30 hover:text-floesky transition disabled:opacity-15 disabled:hover:text-white/30 disabled:cursor-not-allowed"
+      >
+        <FaArrowRightLong size={13} />
+      </motion.button>
+    </div>
   );
 };
 

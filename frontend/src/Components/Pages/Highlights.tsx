@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { FaPlay, FaTimes, FaExpand } from "react-icons/fa";
 import type { Highlight } from "../../types/types";
 import Pagination from "../common/Pagination";
+import usePagination from "../../hooks/usePagination";
 import { getHighlights } from "../../services/highlights.service";
 
 const Highlights = () => {
@@ -13,18 +14,14 @@ const Highlights = () => {
   const [selected, setSelected] = useState<Highlight | null>(null);
   const [isPortrait, setIsPortrait] = useState<boolean | null>(null);
 
-  const [currentPage, setCurrentPage] = useState(1);
-
   const itemsPerPage = 6;
 
-  const totalPages = Math.ceil(highlights.length / itemsPerPage);
-
-  const startIndex = (currentPage - 1) * itemsPerPage;
-
-  const currentHighlights = highlights.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: currentHighlights,
+    setCurrentPage,
+  } = usePagination(highlights, { pageSize: itemsPerPage });
 
   const emptySlots = itemsPerPage - currentHighlights.length;
 

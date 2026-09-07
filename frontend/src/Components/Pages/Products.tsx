@@ -5,6 +5,7 @@ import type { Product } from "../../types/types";
 import { getProducts } from "../../services/products.service";
 import ProductPreviewModal from "../common/ProductPreviewModal";
 import ProductSkeleton from "../common/ProductSkeleton";
+import Pagination from "../common/Pagination";
 
 const categories = ["ALL", "SHORT SLEEVE", "LONG SLEEVE", "SPATS", "FULL SET"];
 
@@ -22,6 +23,9 @@ const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 6;
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -45,6 +49,10 @@ const Products = () => {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [active]);
+
+  useEffect(() => {
     document.body.style.overflow = selected ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
@@ -55,6 +63,17 @@ const Products = () => {
     active === "ALL"
       ? products
       : products.filter((product) => product.category === active);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+
+  const currentProducts = filtered.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
+
+  const emptySlots = itemsPerPage - currentProducts.length;
 
   return (
     <main className="min-h-screen bg-black">
@@ -102,50 +121,68 @@ const Products = () => {
             <p className="font-montserrat text-xs text-red-400">{fetchError}</p>
           </div>
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 max-w-7xl w-full pb-16 sm:pb-20">
-            {filtered.map((project, i) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 * i }}
-                onClick={() => setSelected(project)}
-                className="group relative aspect-4/5 overflow-hidden cursor-pointer"
-              >
-                <img
-                  src={getPrimaryImageUrl(project)}
-                  alt={project.title}
-                  className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                />
+          <div className="w-full max-w-7xl pb-16 sm:pb-20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 w-full">
+              {currentProducts.map((project, i) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 * i }}
+                  onClick={() => setSelected(project)}
+                  className="group relative aspect-4/5 overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={getPrimaryImageUrl(project)}
+                    alt={project.title}
+                    className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                  />
 
-                <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex flex-col gap-1.5 sm:gap-2">
-                  <span className="text-floesky font-montserrat text-xs font-bold tracking-widest">
-                    {project.category}
-                  </span>
+                  <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex flex-col gap-1.5 sm:gap-2">
+                    <span className="text-floesky font-montserrat text-xs font-bold tracking-widest">
+                      {project.category}
+                    </span>
 
-                  <h3 className="font-archivo text-xl sm:text-2xl font-bold tracking-tight">
-                    {project.title}
-                  </h3>
+                    <h3 className="font-archivo text-xl sm:text-2xl font-bold tracking-tight">
+                      {project.title}
+                    </h3>
 
-                  <p className="text-descText font-montserrat text-xs sm:text-sm leading-relaxed line-clamp-2">
-                    {project.description}
-                  </p>
+                    <p className="text-descText font-montserrat text-xs sm:text-sm leading-relaxed line-clamp-2">
+                      {project.description}
+                    </p>
 
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {project.sizes.map((size) => (
-                      <span
-                        key={size}
-                        className="text-[10px] px-2 py-0.5 border border-white/20 text-white/70"
-                      >
-                        {size}
-                      </span>
-                    ))}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {project.sizes.map((size) => (
+                        <span
+                          key={size}
+                          className="text-[10px] px-2 py-0.5 border border-white/20 text-white/70"
+                        >
+                          {size}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))}
+
+              {Array.from({ length: emptySlots }, (_, index) => (
+                <div
+                  key={`empty-${index}`}
+                  className="invisible aspect-4/5"
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 gap-2 py-20">

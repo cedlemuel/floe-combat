@@ -25,12 +25,6 @@ export type ReviewProps = {
   onSubmit: () => void;
 };
 
-export type PaginationProps = {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-};
-
 export type ProductPreviewModalProps = {
   product: Product | null;
   onClose: () => void;
@@ -73,4 +67,10 @@ export type FilterButtonProps = {
   onClick: () => void;
   delay?: number;
   icon?: ReactNode;
+};
+
+export type PaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 };
