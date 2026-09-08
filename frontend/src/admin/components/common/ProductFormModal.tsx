@@ -37,6 +37,8 @@ const ProductFormModal = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    setFileError("");
+
     objectUrlsRef.current.forEach((url) => {
       URL.revokeObjectURL(url);
     });
@@ -70,27 +72,33 @@ const ProductFormModal = ({
   }, [isOpen, editingProduct, categories]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    setFileError("");
-
-    // existing code...
-  }, [isOpen, editingProduct, categories]);
+    return () => {
+      objectUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
 
   const handleFileSelect = (files: File[]) => {
     setFileError("");
 
-    const validFiles = files.filter((file) => file.type.startsWith("image/"));
+    const allowedTypes = ["image/jpeg", "image/png"];
 
-    const invalidFiles = files.filter(
-      (file) => !file.type.startsWith("image/"),
+    const invalidTypeFiles = files.filter(
+      (file) => !allowedTypes.includes(file.type),
     );
 
-    if (invalidFiles.length > 0) {
-      setFileError("Only image files are allowed.");
+    if (invalidTypeFiles.length > 0) {
+      setFileError("Only JPG and PNG images are allowed.");
+      return;
     }
 
-    if (validFiles.length === 0) return;
+    const oversizedFiles = files.filter((file) => file.size > 5 * 1024 * 1024);
+
+    if (oversizedFiles.length > 0) {
+      setFileError("Each image must be 5 MB or smaller.");
+      return;
+    }
 
     const availableSlots =
       MAX_PRODUCT_IMAGES - existingImages.length - form.images.length;
@@ -100,7 +108,7 @@ const ProductFormModal = ({
       return;
     }
 
-    if (validFiles.length > availableSlots) {
+    if (files.length > availableSlots) {
       setFileError(
         `You can only add ${availableSlots} more ${
           availableSlots === 1 ? "image" : "images"
@@ -108,7 +116,7 @@ const ProductFormModal = ({
       );
     }
 
-    const selectedFiles = validFiles.slice(0, availableSlots);
+    const selectedFiles = files.slice(0, availableSlots);
 
     const urls = selectedFiles.map((file) => URL.createObjectURL(file));
 
@@ -179,6 +187,7 @@ const ProductFormModal = ({
 
     if (
       !form.title.trim() ||
+      !form.category ||
       !form.description.trim() ||
       form.sizes.length === 0 ||
       totalImages === 0
@@ -198,7 +207,11 @@ const ProductFormModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={() => {
+            if (!isSubmitting) {
+              onClose();
+            }
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-xs sm:p-4"
         >
           <motion.form
@@ -216,7 +229,11 @@ const ProductFormModal = ({
               </h2>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  if (!isSubmitting) {
+                    onClose();
+                  }
+                }}
                 aria-label="Close"
                 className="w-8 h-8 flex items-center justify-center text-descText hover:text-white transition"
               >
@@ -282,7 +299,7 @@ const ProductFormModal = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png"
                   multiple
                   onChange={(e) =>
                     handleFileSelect(Array.from(e.target.files ?? []))
@@ -428,7 +445,11 @@ const ProductFormModal = ({
             <div className="flex items-center justify-end gap-1.5 border-t border-white/5 px-4 py-4 sm:gap-3 sm:px-6">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  if (!isSubmitting) {
+                    onClose();
+                  }
+                }}
                 className="font-montserrat text-xs tracking-wider text-descText hover:text-white px-4 py-2.5 transition"
               >
                 CANCEL
@@ -438,6 +459,7 @@ const ProductFormModal = ({
                 disabled={
                   isSubmitting ||
                   !form.title.trim() ||
+                  !form.category ||
                   !form.description.trim() ||
                   form.sizes.length === 0 ||
                   totalImages === 0

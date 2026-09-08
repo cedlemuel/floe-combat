@@ -13,6 +13,7 @@ export type HighlightFormValues = {
   media_type: "image" | "video";
   mediaFile: File | null;
   thumbnailFile: File | null;
+  thumbnailRemoved: boolean;
 };
 
 export type ReviewFormValues = {

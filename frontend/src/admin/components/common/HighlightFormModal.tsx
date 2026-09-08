@@ -8,8 +8,16 @@ import {
   FaVideo,
   FaSpinner,
 } from "react-icons/fa";
+
 import type { HighlightFormValues } from "../../../types/admintypes";
 import type { HighlightFormModalProps } from "../../../types/adminprops";
+
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
 const emptyForm: HighlightFormValues = {
   title: "",
@@ -17,6 +25,7 @@ const emptyForm: HighlightFormValues = {
   media_type: "image",
   mediaFile: null,
   thumbnailFile: null,
+  thumbnailRemoved: false,
 };
 
 const HighlightFormModal = ({
@@ -35,15 +44,17 @@ const HighlightFormModal = ({
   const [isMediaDragging, setIsMediaDragging] = useState(false);
   const [isThumbnailDragging, setIsThumbnailDragging] = useState(false);
 
+  const [fileError, setFileError] = useState("");
+
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
-
-  const [fileError, setFileError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
 
     setFileError("");
+    setIsMediaDragging(false);
+    setIsThumbnailDragging(false);
 
     setForm({
       title: editingHighlight?.title ?? "",
@@ -51,10 +62,24 @@ const HighlightFormModal = ({
       media_type: editingHighlight?.media_type ?? "image",
       mediaFile: null,
       thumbnailFile: null,
+      thumbnailRemoved: false,
     });
 
-    setMediaPreview(editingHighlight?.media_url ?? "");
-    setThumbnailPreview(editingHighlight?.thumbnail_url ?? "");
+    setMediaPreview((previous) => {
+      if (previous.startsWith("blob:")) {
+        URL.revokeObjectURL(previous);
+      }
+
+      return editingHighlight?.media_url ?? "";
+    });
+
+    setThumbnailPreview((previous) => {
+      if (previous.startsWith("blob:")) {
+        URL.revokeObjectURL(previous);
+      }
+
+      return editingHighlight?.thumbnail_url ?? "";
+    });
 
     if (mediaInputRef.current) {
       mediaInputRef.current.value = "";
@@ -65,19 +90,46 @@ const HighlightFormModal = ({
     }
   }, [isOpen, editingHighlight]);
 
+  useEffect(() => {
+    return () => {
+      if (mediaPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(mediaPreview);
+      }
+
+      if (thumbnailPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(thumbnailPreview);
+      }
+    };
+  }, [mediaPreview, thumbnailPreview]);
+
   const handleMediaFile = (file?: File) => {
-    if (!file) return;
+    if (!file || isSubmitting) return;
 
     setFileError("");
 
-    const expectedType = form.media_type === "image" ? "image/" : "video/";
+    const allowedTypes =
+      form.media_type === "image" ? IMAGE_TYPES : VIDEO_TYPES;
 
-    if (!file.type.startsWith(expectedType)) {
+    if (!allowedTypes.includes(file.type)) {
       setFileError(
         form.media_type === "image"
-          ? "Please upload an image file."
-          : "Please upload a video file.",
+          ? "Only JPG, PNG, and WEBP images are allowed."
+          : "Only MP4, WEBM, and MOV videos are allowed.",
       );
+
+      return;
+    }
+
+    const maxSize =
+      form.media_type === "image" ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+
+    if (file.size > maxSize) {
+      setFileError(
+        form.media_type === "image"
+          ? "Image must be 5 MB or smaller."
+          : "Video must be 50 MB or smaller.",
+      );
+
       return;
     }
 
@@ -95,15 +147,27 @@ const HighlightFormModal = ({
 
       return previewUrl;
     });
+
+    if (mediaInputRef.current) {
+      mediaInputRef.current.value = "";
+    }
   };
 
   const handleThumbnailFile = (file?: File) => {
-    if (!file) return;
+    if (!file || isSubmitting) return;
 
     setFileError("");
 
-    if (!file.type.startsWith("image/")) {
-      setFileError("Video thumbnail must be an image file.");
+    if (!IMAGE_TYPES.includes(file.type)) {
+      setFileError(
+        "Video thumbnail must be a JPG, PNG, or WEBP image.",
+      );
+
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setFileError("Thumbnail must be 5 MB or smaller.");
       return;
     }
 
@@ -112,6 +176,7 @@ const HighlightFormModal = ({
     setForm((prev) => ({
       ...prev,
       thumbnailFile: file,
+      thumbnailRemoved: false,
     }));
 
     setThumbnailPreview((previous) => {
@@ -121,9 +186,15 @@ const HighlightFormModal = ({
 
       return previewUrl;
     });
+
+    if (thumbnailInputRef.current) {
+      thumbnailInputRef.current.value = "";
+    }
   };
 
-  const handleMediaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     handleMediaFile(e.target.files?.[0]);
   };
 
@@ -133,21 +204,31 @@ const HighlightFormModal = ({
     handleThumbnailFile(e.target.files?.[0]);
   };
 
-  const handleMediaDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleMediaDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+  ) => {
     e.preventDefault();
     setIsMediaDragging(false);
+
+    if (isSubmitting) return;
 
     handleMediaFile(e.dataTransfer.files?.[0]);
   };
 
-  const handleThumbnailDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleThumbnailDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+  ) => {
     e.preventDefault();
     setIsThumbnailDragging(false);
+
+    if (isSubmitting) return;
 
     handleThumbnailFile(e.dataTransfer.files?.[0]);
   };
 
   const removeMedia = () => {
+    if (isSubmitting) return;
+
     if (mediaPreview.startsWith("blob:")) {
       URL.revokeObjectURL(mediaPreview);
     }
@@ -165,6 +246,8 @@ const HighlightFormModal = ({
   };
 
   const removeThumbnail = () => {
+    if (isSubmitting) return;
+
     if (thumbnailPreview.startsWith("blob:")) {
       URL.revokeObjectURL(thumbnailPreview);
     }
@@ -174,6 +257,7 @@ const HighlightFormModal = ({
     setForm((prev) => ({
       ...prev,
       thumbnailFile: null,
+      thumbnailRemoved: true,
     }));
 
     if (thumbnailInputRef.current) {
@@ -181,22 +265,30 @@ const HighlightFormModal = ({
     }
   };
 
-  const handleMediaTypeChange = (mediaType: "image" | "video") => {
+  const handleMediaTypeChange = (
+    mediaType: "image" | "video",
+  ) => {
+    if (isSubmitting) return;
+
+    if (mediaType === form.media_type) return;
+
     setFileError("");
 
     removeMedia();
+
+    if (mediaType === "image") {
+      removeThumbnail();
+    }
 
     setForm((prev) => ({
       ...prev,
       media_type: mediaType,
     }));
-
-    if (mediaType === "image") {
-      removeThumbnail();
-    }
   };
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = (
+    e: React.SubmitEvent<HTMLFormElement>,
+  ) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -222,6 +314,7 @@ const HighlightFormModal = ({
           form.media_type === "image" ? "image" : "video"
         }.`,
       );
+
       return;
     }
 
@@ -230,7 +323,25 @@ const HighlightFormModal = ({
 
   const isEditing = editingHighlight !== null;
 
-  const mediaAccept = form.media_type === "image" ? "image/*" : "video/*";
+  const mediaAccept =
+    form.media_type === "image"
+      ? "image/jpeg,image/png,image/webp"
+      : "video/mp4,video/webm,video/quicktime";
+
+  const isSubmitDisabled =
+    isSubmitting ||
+    !form.title.trim() ||
+    !form.athlete.trim() ||
+    (!editingHighlight && !form.mediaFile) ||
+    (editingHighlight !== null &&
+      form.media_type !== editingHighlight.media_type &&
+      !form.mediaFile);
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      onClose();
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -239,7 +350,7 @@ const HighlightFormModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleClose}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-3 sm:p-4"
         >
           <motion.form
@@ -265,14 +376,17 @@ const HighlightFormModal = ({
           >
             <div className="flex items-center justify-between border-b border-white/5 px-4 py-4 sm:px-6">
               <h2 className="font-montserrat text-sm font-bold tracking-[2px] text-white">
-                {isEditing ? "EDIT HIGHLIGHT" : "ADD HIGHLIGHT"}
+                {isEditing
+                  ? "EDIT HIGHLIGHT"
+                  : "ADD HIGHLIGHT"}
               </h2>
 
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
+                disabled={isSubmitting}
                 aria-label="Close"
-                className="w-8 h-8 flex items-center justify-center text-descText hover:text-white transition"
+                className="w-8 h-8 flex items-center justify-center text-descText hover:text-white transition disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <FaTimes size={14} />
               </button>
@@ -288,6 +402,7 @@ const HighlightFormModal = ({
                   type="text"
                   required
                   value={form.title}
+                  disabled={isSubmitting}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
@@ -295,7 +410,7 @@ const HighlightFormModal = ({
                     }))
                   }
                   placeholder="Highlight title"
-                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition"
+                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition disabled:opacity-50"
                 />
               </div>
 
@@ -308,6 +423,7 @@ const HighlightFormModal = ({
                   type="text"
                   required
                   value={form.athlete}
+                  disabled={isSubmitting}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
@@ -315,7 +431,7 @@ const HighlightFormModal = ({
                     }))
                   }
                   placeholder="Athlete name"
-                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition"
+                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition disabled:opacity-50"
                 />
               </div>
 
@@ -327,8 +443,11 @@ const HighlightFormModal = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleMediaTypeChange("image")}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition ${
+                    disabled={isSubmitting}
+                    onClick={() =>
+                      handleMediaTypeChange("image")
+                    }
+                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       form.media_type === "image"
                         ? "border-floesky/50 bg-floesky/10 text-floesky"
                         : "border-borderColor text-descText2 hover:text-floesky hover:border-floesky"
@@ -340,8 +459,11 @@ const HighlightFormModal = ({
 
                   <button
                     type="button"
-                    onClick={() => handleMediaTypeChange("video")}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition ${
+                    disabled={isSubmitting}
+                    onClick={() =>
+                      handleMediaTypeChange("video")
+                    }
+                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       form.media_type === "video"
                         ? "border-floesky/50 bg-floesky/10 text-floesky"
                         : "border-borderColor text-descText2 hover:text-floesky hover:border-floesky"
@@ -356,7 +478,11 @@ const HighlightFormModal = ({
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   {isEditing
-                    ? `REPLACE ${form.media_type === "image" ? "IMAGE" : "VIDEO"} (OPTIONAL)`
+                    ? `REPLACE ${
+                        form.media_type === "image"
+                          ? "IMAGE"
+                          : "VIDEO"
+                      } (OPTIONAL)`
                     : form.media_type === "image"
                       ? "IMAGE"
                       : "VIDEO"}
@@ -366,6 +492,7 @@ const HighlightFormModal = ({
                   ref={mediaInputRef}
                   type="file"
                   accept={mediaAccept}
+                  disabled={isSubmitting}
                   onChange={handleMediaInputChange}
                   className="hidden"
                 />
@@ -389,8 +516,11 @@ const HighlightFormModal = ({
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button
                         type="button"
-                        onClick={() => mediaInputRef.current?.click()}
-                        className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition"
+                        disabled={isSubmitting}
+                        onClick={() =>
+                          mediaInputRef.current?.click()
+                        }
+                        className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <FaCloudUploadAlt size={12} />
                         CHANGE
@@ -399,8 +529,9 @@ const HighlightFormModal = ({
                       {mediaPreview.startsWith("blob:") && (
                         <button
                           type="button"
+                          disabled={isSubmitting}
                           onClick={removeMedia}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition"
+                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <FaTrash size={11} />
                           REMOVE
@@ -410,14 +541,27 @@ const HighlightFormModal = ({
                   </div>
                 ) : (
                   <div
-                    onClick={() => mediaInputRef.current?.click()}
+                    onClick={() => {
+                      if (!isSubmitting) {
+                        mediaInputRef.current?.click();
+                      }
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      setIsMediaDragging(true);
+
+                      if (!isSubmitting) {
+                        setIsMediaDragging(true);
+                      }
                     }}
-                    onDragLeave={() => setIsMediaDragging(false)}
+                    onDragLeave={() =>
+                      setIsMediaDragging(false)
+                    }
                     onDrop={handleMediaDrop}
-                    className={`w-full aspect-video rounded-sm border border-borderColor border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition ${
+                    className={`w-full aspect-video rounded-sm border border-dashed flex flex-col items-center justify-center gap-3 transition ${
+                      isSubmitting
+                        ? "cursor-not-allowed opacity-50"
+                        : "cursor-pointer"
+                    } ${
                       isMediaDragging
                         ? "border-floesky bg-floesky/5"
                         : "border-borderColor bg-white/2 hover:border-floesky"
@@ -438,8 +582,8 @@ const HighlightFormModal = ({
 
                       <span className="font-montserrat text-[10px] text-descText2">
                         {form.media_type === "image"
-                          ? "PNG, JPG, WEBP"
-                          : "MP4, WEBM, MOV"}
+                          ? "PNG, JPG, WEBP • MAX 5MB"
+                          : "MP4, WEBM, MOV • MAX 50MB"}
                       </span>
                     </div>
                   </div>
@@ -455,7 +599,8 @@ const HighlightFormModal = ({
                   <input
                     ref={thumbnailInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={isSubmitting}
                     onChange={handleThumbnailInputChange}
                     className="hidden"
                   />
@@ -471,8 +616,11 @@ const HighlightFormModal = ({
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                         <button
                           type="button"
-                          onClick={() => thumbnailInputRef.current?.click()}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition"
+                          disabled={isSubmitting}
+                          onClick={() =>
+                            thumbnailInputRef.current?.click()
+                          }
+                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <FaCloudUploadAlt size={12} />
                           CHANGE
@@ -480,8 +628,9 @@ const HighlightFormModal = ({
 
                         <button
                           type="button"
+                          disabled={isSubmitting}
                           onClick={removeThumbnail}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition"
+                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <FaTrash size={11} />
                           REMOVE
@@ -490,14 +639,27 @@ const HighlightFormModal = ({
                     </div>
                   ) : (
                     <div
-                      onClick={() => thumbnailInputRef.current?.click()}
+                      onClick={() => {
+                        if (!isSubmitting) {
+                          thumbnailInputRef.current?.click();
+                        }
+                      }}
                       onDragOver={(e) => {
                         e.preventDefault();
-                        setIsThumbnailDragging(true);
+
+                        if (!isSubmitting) {
+                          setIsThumbnailDragging(true);
+                        }
                       }}
-                      onDragLeave={() => setIsThumbnailDragging(false)}
+                      onDragLeave={() =>
+                        setIsThumbnailDragging(false)
+                      }
                       onDrop={handleThumbnailDrop}
-                      className={`w-full aspect-video rounded-sm border border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition ${
+                      className={`w-full aspect-video rounded-sm border border-dashed flex flex-col items-center justify-center gap-3 transition ${
+                        isSubmitting
+                          ? "cursor-not-allowed opacity-50"
+                          : "cursor-pointer"
+                      } ${
                         isThumbnailDragging
                           ? "border-floesky bg-floesky/5"
                           : "border-white/10 bg-white/2 hover:border-floesky"
@@ -513,7 +675,7 @@ const HighlightFormModal = ({
                         </span>
 
                         <span className="font-montserrat text-[10px] text-descText2">
-                          PNG, JPG, WEBP
+                          PNG, JPG, WEBP • MAX 5MB
                         </span>
                       </div>
                     </div>
@@ -533,19 +695,23 @@ const HighlightFormModal = ({
             <div className="flex items-center justify-end gap-1.5 border-t border-white/5 px-4 py-4 sm:gap-3 sm:px-6">
               <button
                 type="button"
-                onClick={onClose}
-                className="font-montserrat text-xs tracking-wider text-white/40 hover:text-white px-4 py-2.5 transition"
+                onClick={handleClose}
+                disabled={isSubmitting}
+                className="font-montserrat text-xs tracking-wider text-white/40 hover:text-white px-4 py-2.5 transition disabled:cursor-not-allowed disabled:opacity-30"
               >
                 CANCEL
               </button>
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitDisabled}
                 className="flex items-center justify-center gap-2 bg-floesky text-black font-montserrat font-bold text-xs px-5 py-2.5 tracking-wider rounded-sm hover:opacity-90 transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting && (
-                  <FaSpinner size={12} className="animate-spin" />
+                  <FaSpinner
+                    size={12}
+                    className="animate-spin"
+                  />
                 )}
 
                 {isSubmitting

@@ -28,7 +28,6 @@ const ReviewFormModal = ({
 
   const isEditing = editingReview !== null;
 
-  // Reset form whenever modal opens or edit target changes.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -49,8 +48,6 @@ const ReviewFormModal = ({
     setForm(emptyForm);
   }, [isOpen, editingReview]);
 
-  // Select the first product only if no product is selected yet.
-  // This prevents the dropdown from resetting after the user changes it.
   useEffect(() => {
     if (
       !isOpen ||
@@ -63,12 +60,20 @@ const ReviewFormModal = ({
 
     const firstProduct = products[0];
 
+    if (!firstProduct) return;
+
     setForm((prev) => ({
       ...prev,
       product_id: Number(firstProduct.id),
       product_name: firstProduct.title,
     }));
   }, [isOpen, editingReview, products, form.product_id]);
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      onClose();
+    }
+  };
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,6 +82,7 @@ const ReviewFormModal = ({
 
     if (
       !form.author.trim() ||
+      !form.role.trim() ||
       !form.review_text.trim() ||
       !form.product_name ||
       form.product_id === null
@@ -87,6 +93,14 @@ const ReviewFormModal = ({
     onSubmit(form);
   };
 
+  const isSubmitDisabled =
+    isSubmitting ||
+    !form.author.trim() ||
+    !form.role.trim() ||
+    !form.review_text.trim() ||
+    !form.product_name ||
+    form.product_id === null;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -94,10 +108,7 @@ const ReviewFormModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => {
-            if (isSubmitting) return;
-            onClose();
-          }}
+          onClick={handleClose}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4"
         >
           <motion.form
@@ -129,7 +140,7 @@ const ReviewFormModal = ({
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close"
                 className="flex h-8 w-8 items-center justify-center text-white/40 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
               >
@@ -146,6 +157,7 @@ const ReviewFormModal = ({
 
                   <input
                     required
+                    disabled={isSubmitting}
                     value={form.author}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -154,7 +166,7 @@ const ReviewFormModal = ({
                       }))
                     }
                     placeholder="e.g. Coach Ronnie DC"
-                    className="border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none"
+                    className="border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
 
@@ -164,6 +176,8 @@ const ReviewFormModal = ({
                   </label>
 
                   <input
+                    required
+                    disabled={isSubmitting}
                     value={form.role}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -172,7 +186,7 @@ const ReviewFormModal = ({
                       }))
                     }
                     placeholder="e.g. BJJ Purple Belt"
-                    className="border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none"
+                    className="border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -186,7 +200,7 @@ const ReviewFormModal = ({
                   value={
                     form.product_id !== null ? String(form.product_id) : ""
                   }
-                  disabled={products.length === 0}
+                  disabled={isSubmitting || products.length === 0}
                   onChange={(e) => {
                     const selectedProduct = products.find(
                       (product) => String(product.id) === e.target.value,
@@ -251,6 +265,7 @@ const ReviewFormModal = ({
 
                 <textarea
                   required
+                  disabled={isSubmitting}
                   value={form.review_text}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -260,7 +275,7 @@ const ReviewFormModal = ({
                   }
                   rows={4}
                   placeholder="What did they say?"
-                  className="resize-none border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none"
+                  className="resize-none border border-white/10 bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-white/20 focus:border-floesky/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
@@ -296,7 +311,7 @@ const ReviewFormModal = ({
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-4 py-2.5 font-montserrat text-xs tracking-wider text-white/40 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
               >
                 CANCEL
@@ -304,13 +319,7 @@ const ReviewFormModal = ({
 
               <button
                 type="submit"
-                disabled={
-                  isSubmitting ||
-                  !form.author.trim() ||
-                  !form.review_text.trim() ||
-                  !form.product_name ||
-                  form.product_id === null
-                }
+                disabled={isSubmitDisabled}
                 className="flex items-center justify-center gap-2 rounded-sm bg-floesky px-5 py-2.5 font-montserrat text-xs font-bold tracking-wider text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 {isSubmitting && (

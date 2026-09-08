@@ -253,7 +253,7 @@ const Reviews = () => {
               products.length === 0 ||
               !!productsError
             }
-            className="border border-floesky text-floesky px-4 py-2 text-xs font-bold tracking-widest hover:bg-floesky/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="border border-floesky text-floesky px-4 py-2 text-xs font-bold tracking-widest hover:bg-floesky/10 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isProductsLoading
               ? "LOADING PRODUCTS..."

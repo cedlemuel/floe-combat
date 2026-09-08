@@ -122,7 +122,6 @@ const AdminHighlights = () => {
           updateData.media_public_id = uploadedMedia.public_id;
         }
 
-        // Upload replacement thumbnail only when selected
         if (values.thumbnailFile) {
           const uploadedThumbnail = await uploadToCloudinary(
             values.thumbnailFile,

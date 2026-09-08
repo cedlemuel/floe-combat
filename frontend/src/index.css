@@ -17,6 +17,8 @@
   --color-descText2: #737373;
   --color-semitrans: #a0a0a0;
   --color-borderColor: #d5d5d5;
+  --color-purewhite: #ffffff;
+  --color-steps: #a0a0a0;
 
   --font-archivo: "Archivo Black", sans-serif;
   --font-montserrat: "Montserrat", sans-serif;
@@ -31,6 +33,8 @@
   --color-descText2: #ffffff66;
   --color-semitrans: #ffffff1a;
   --color-borderColor: #262626;
+  --color-purewhite: #ffffff;
+  --color-steps: #F8F8F5;
 
   --font-archivo: "Archivo Black", sans-serif;
   --font-montserrat: "Montserrat", sans-serif;
