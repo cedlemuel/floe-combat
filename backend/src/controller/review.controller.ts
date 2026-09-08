@@ -229,7 +229,12 @@ const createAdminReviewController = async (req: Request, res: Response) => {
     }
 
     try {
-      await createAdminActivity(req.admin!.adminId, "CREATE_REVIEW", review.id);
+      await createAdminActivity(
+        req.admin!.adminId,
+        "CREATE_REVIEW",
+        "review",
+        review.id,
+      );
     } catch (activityError) {
       console.error("Failed to create admin activity:", activityError);
     }
@@ -356,6 +361,7 @@ const updateReviewFeaturedController = async (req: Request, res: Response) => {
       await createAdminActivity(
         req.admin!.adminId,
         featured ? "FEATURE_REVIEW" : "UNFEATURE_REVIEW",
+        "review",
         updatedReview.id,
       );
     } catch (activityError) {
@@ -478,6 +484,7 @@ const updateReviewController = async (req: Request, res: Response) => {
       await createAdminActivity(
         req.admin!.adminId,
         "UPDATE_REVIEW",
+        "review",
         updatedReview.id,
       );
     } catch (activityError) {
@@ -527,6 +534,7 @@ const deleteReviewController = async (req: Request, res: Response) => {
       await createAdminActivity(
         req.admin!.adminId,
         "DELETE_REVIEW",
+        "review",
         deletedReview.id,
       );
     } catch (activityError) {
