@@ -89,11 +89,11 @@ const updateHighlight = async (
       SET
         title = $1,
         athlete = $2,
-        media_type = COALESCE($3, media_type),
-        media_url = COALESCE($4, media_url),
-        media_public_id = COALESCE($5, media_public_id),
-        thumbnail_url = COALESCE($6, thumbnail_url),
-        thumbnail_public_id = COALESCE($7, thumbnail_public_id),
+        media_type = $3,
+        media_url = $4,
+        media_public_id = $5,
+        thumbnail_url = $6,
+        thumbnail_public_id = $7,
         updated_at = NOW()
       WHERE id = $8
       RETURNING ${highlightColumns}
@@ -101,11 +101,11 @@ const updateHighlight = async (
     [
       input.title,
       input.athlete,
-      input.mediaType ?? null,
-      input.mediaUrl ?? null,
-      input.mediaPublicId ?? null,
-      input.thumbnailUrl ?? null,
-      input.thumbnailPublicId ?? null,
+      input.mediaType,
+      input.mediaUrl,
+      input.mediaPublicId,
+      input.thumbnailUrl,
+      input.thumbnailPublicId,
       id,
     ],
   );

@@ -3,18 +3,25 @@ import pool from "../db/pool.js";
 const createAdminActivity = async (
   adminId: number,
   action: string,
-  productId?: number,
+  entityType?: string,
+  entityId?: number,
 ) => {
   await pool.query(
     `
       INSERT INTO admin_activity_logs (
         admin_id,
         action,
-        product_id
+        entity_type,
+        entity_id
       )
-      VALUES ($1, $2, $3)
+      VALUES ($1, $2, $3, $4)
     `,
-    [adminId, action, productId ?? null],
+    [
+      adminId,
+      action,
+      entityType ?? null,
+      entityId ?? null,
+    ],
   );
 };
 
@@ -25,7 +32,8 @@ const getAdminActivities = async () => {
       logs.admin_id AS "adminId",
       admins.email AS "adminEmail",
       logs.action,
-      logs.product_id AS "productId",
+      logs.entity_type AS "entityType",
+      logs.entity_id AS "entityId",
       logs.created_at AS "createdAt"
     FROM admin_activity_logs AS logs
     JOIN admins
@@ -36,4 +44,7 @@ const getAdminActivities = async () => {
   return result.rows;
 };
 
-export { createAdminActivity, getAdminActivities };
+export {
+  createAdminActivity,
+  getAdminActivities,
+};

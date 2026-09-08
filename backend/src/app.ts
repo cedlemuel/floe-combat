@@ -5,7 +5,6 @@ import uploadRoutes from "./routes/upload.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import pool from "./db/pool.js";
 import highlightRoutes from "./routes/highlight.routes.js";
-import { uploadErrorHandler } from "./middleware/upload.error.middleware.js";
 import reviewRoutes from "./routes/review.routes.js";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -46,6 +45,5 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/highlights", highlightRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use(uploadErrorHandler);
 
 export default app;

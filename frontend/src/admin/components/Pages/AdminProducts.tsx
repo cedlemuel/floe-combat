@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { FaPlus, FaPen, FaTrash, FaSearch, FaImage } from "react-icons/fa";
 import type { ProductFormValues } from "../../../types/admintypes";
-import type { Product } from "../../../types/types";
+import type {
+  Product,
+  CleanupAsset,
+  NewProductImage,
+} from "../../../types/types";
 import ProductFormModal from "../../components/common/ProductFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import ImagePreviewModal from "../../components/common/ImagePreviewModal";
@@ -13,6 +17,10 @@ import {
   updateProduct,
   deleteProduct,
 } from "../../../services/products.service";
+import {
+  cleanupCloudinaryAssets,
+  uploadToCloudinary,
+} from "../../../services/cloudinary.service";
 
 const categories = ["SHORT SLEEVE", "LONG SLEEVE", "SPATS", "FULL SET"];
 const sizeOptions = [
@@ -92,16 +100,19 @@ const AdminProducts = () => {
   }, []);
 
   const openAddForm = () => {
+    setError("");
     setEditingProduct(null);
     setIsFormOpen(true);
   };
 
   const openEditForm = (product: Product) => {
+    setError("");
     setEditingProduct(product);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
+    setError("");
     setIsFormOpen(false);
     setEditingProduct(null);
   };
@@ -109,17 +120,35 @@ const AdminProducts = () => {
   const handleFormSubmit = async (values: ProductFormValues) => {
     if (isSaving) return;
 
+    const uploadedAssets: CleanupAsset[] = [];
+
     try {
       setIsSaving(true);
       setError("");
 
+      const newImages: NewProductImage[] = [];
+
+      for (const file of values.images) {
+        const uploaded = await uploadToCloudinary(file, "product-image");
+
+        uploadedAssets.push({
+          publicId: uploaded.publicId,
+          resourceType: uploaded.resourceType,
+        });
+
+        newImages.push({
+          image_url: uploaded.url,
+          image_public_id: uploaded.publicId,
+        });
+      }
+
       if (editingProduct) {
         const updatedProduct = await updateProduct(editingProduct.id, {
-          title: values.title,
-          category: values.category,
-          description: values.description,
+          title: values.title.trim(),
+          category: values.category.trim(),
+          description: values.description.trim(),
           sizes: values.sizes,
-          images: values.images,
+          images: newImages,
           deletedImageIds: values.deletedImageIds,
         });
 
@@ -129,14 +158,12 @@ const AdminProducts = () => {
           ),
         );
       } else {
-        if (values.images.length === 0) return;
-
         const newProduct = await createProduct({
-          title: values.title,
-          category: values.category,
-          description: values.description,
+          title: values.title.trim(),
+          category: values.category.trim(),
+          description: values.description.trim(),
           sizes: values.sizes,
-          images: values.images,
+          images: newImages,
         });
 
         setProducts((prev) => [newProduct, ...prev]);
@@ -144,6 +171,12 @@ const AdminProducts = () => {
 
       closeForm();
     } catch (error) {
+      try {
+        await cleanupCloudinaryAssets(uploadedAssets);
+      } catch (cleanupError) {
+        console.error("Product upload cleanup failed:", cleanupError);
+      }
+
       setError(
         error instanceof Error ? error.message : "Could not save product.",
       );

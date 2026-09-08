@@ -13,8 +13,14 @@ export type ProductImage = {
   id: number;
   product_id: number;
   image_url: string;
+  image_public_id: string;
   is_primary: boolean;
   sort_order: number;
+};
+
+export type NewProductImage = {
+  image_url: string;
+  image_public_id: string;
 };
 
 export type ProductResponse = {
@@ -34,7 +40,7 @@ export type ProductInput = {
   category: string;
   description: string;
   sizes: string[];
-  images: File[];
+  images: NewProductImage[];
 };
 
 export type UpdateProductInput = {
@@ -42,7 +48,7 @@ export type UpdateProductInput = {
   category: string;
   description: string;
   sizes: string[];
-  images?: File[];
+  images: NewProductImage[];
   deletedImageIds: number[];
 };
 
@@ -52,7 +58,9 @@ export type Highlight = {
   athlete: string;
   media_type: "video" | "image";
   media_url: string;
+  media_public_id: string;
   thumbnail_url: string | null;
+  thumbnail_public_id: string | null;
 };
 
 export type HighlightResponse = {
@@ -83,8 +91,9 @@ export type UpdateHighlightInput = {
   media_type?: "image" | "video";
   media_url?: string;
   media_public_id?: string;
-  thumbnail_url?: string | null;
-  thumbnail_public_id?: string | null;
+  thumbnail_url?: string;
+  thumbnail_public_id?: string;
+  thumbnail_removed?: boolean;
 };
 
 export type ReviewStatus = "pending" | "approved" | "rejected";
@@ -145,16 +154,52 @@ export type CreateCustomerReviewInput = {
 };
 
 export type UploadPurpose =
-  | "highlight-media"
-  | "highlight-thumbnail"
-  | "product-image";
+  | "product-image"
+  | "highlight-image"
+  | "highlight-video"
+  | "highlight-thumbnail";
 
-export type CloudinaryUploadResult = {
+export type UploadSignatureResponse = {
+  success: boolean;
+  message?: string;
+  result: {
+    timestamp: number;
+    signature: string;
+    folder: string;
+    resourceType: "image" | "video";
+    allowedFormats: string[];
+    cloudName: string;
+    apiKey: string;
+  };
+};
+
+export type CloudinaryResponse = {
   secure_url: string;
   public_id: string;
   resource_type: "image" | "video";
 };
 
+export type UploadedFile = {
+  url: string;
+  publicId: string;
+  resourceType: "image" | "video";
+};
+
 export type UsePaginationOptions = {
   pageSize?: number;
+};
+
+export type CleanupAsset = {
+  publicId: string;
+  resourceType: "image" | "video";
+};
+
+export type CleanupResponse = {
+  success: boolean;
+  message: string;
+  result: {
+    deleted: string[];
+    skipped: string[];
+    failed: string[];
+  };
 };

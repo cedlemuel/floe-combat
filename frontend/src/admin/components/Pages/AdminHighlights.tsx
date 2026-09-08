@@ -21,7 +21,12 @@ import {
   deleteHighlight,
   updateHighlight,
 } from "../../../services/highlights.service";
-import { uploadToCloudinary } from "../../../services/cloudinary.service";
+import {
+  cleanupCloudinaryAssets,
+  uploadToCloudinary,
+} from "../../../services/cloudinary.service";
+
+import type { CleanupAsset } from "../../../types/types";
 
 const AdminHighlights = () => {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -101,35 +106,52 @@ const AdminHighlights = () => {
   const handleSubmit = async (values: HighlightFormValues) => {
     if (isSaving) return;
 
+    const uploadedAssets: CleanupAsset[] = [];
+
     try {
       setIsSaving(true);
       setError("");
 
+      const mediaPurpose =
+        values.media_type === "video" ? "highlight-video" : "highlight-image";
+
       if (editingHighlight) {
         const updateData: UpdateHighlightInput = {
-          title: values.title,
-          athlete: values.athlete,
+          title: values.title.trim(),
+          athlete: values.athlete.trim(),
+          thumbnail_removed: values.thumbnailRemoved,
         };
 
         if (values.mediaFile) {
           const uploadedMedia = await uploadToCloudinary(
             values.mediaFile,
-            "highlight-media",
+            mediaPurpose,
           );
 
-          updateData.media_type = uploadedMedia.resource_type;
-          updateData.media_url = uploadedMedia.secure_url;
-          updateData.media_public_id = uploadedMedia.public_id;
+          uploadedAssets.push({
+            publicId: uploadedMedia.publicId,
+            resourceType: uploadedMedia.resourceType,
+          });
+
+          updateData.media_type = values.media_type;
+          updateData.media_url = uploadedMedia.url;
+          updateData.media_public_id = uploadedMedia.publicId;
         }
 
-        if (values.thumbnailFile) {
+        if (values.media_type === "video" && values.thumbnailFile) {
           const uploadedThumbnail = await uploadToCloudinary(
             values.thumbnailFile,
             "highlight-thumbnail",
           );
 
-          updateData.thumbnail_url = uploadedThumbnail.secure_url;
-          updateData.thumbnail_public_id = uploadedThumbnail.public_id;
+          uploadedAssets.push({
+            publicId: uploadedThumbnail.publicId,
+            resourceType: uploadedThumbnail.resourceType,
+          });
+
+          updateData.thumbnail_url = uploadedThumbnail.url;
+          updateData.thumbnail_public_id = uploadedThumbnail.publicId;
+          updateData.thumbnail_removed = false;
         }
 
         const updatedHighlight = await updateHighlight(
@@ -149,24 +171,38 @@ const AdminHighlights = () => {
 
         const uploadedMedia = await uploadToCloudinary(
           values.mediaFile,
-          "highlight-media",
+          mediaPurpose,
         );
 
-        const uploadedThumbnail = values.thumbnailFile
-          ? await uploadToCloudinary(
-              values.thumbnailFile,
-              "highlight-thumbnail",
-            )
-          : null;
+        uploadedAssets.push({
+          publicId: uploadedMedia.publicId,
+          resourceType: uploadedMedia.resourceType,
+        });
+
+        let uploadedThumbnail: Awaited<
+          ReturnType<typeof uploadToCloudinary>
+        > | null = null;
+
+        if (values.media_type === "video" && values.thumbnailFile) {
+          uploadedThumbnail = await uploadToCloudinary(
+            values.thumbnailFile,
+            "highlight-thumbnail",
+          );
+
+          uploadedAssets.push({
+            publicId: uploadedThumbnail.publicId,
+            resourceType: uploadedThumbnail.resourceType,
+          });
+        }
 
         const newHighlight = await createHighlight({
-          title: values.title,
-          athlete: values.athlete,
-          media_type: uploadedMedia.resource_type,
-          media_url: uploadedMedia.secure_url,
-          media_public_id: uploadedMedia.public_id,
-          thumbnail_url: uploadedThumbnail?.secure_url ?? null,
-          thumbnail_public_id: uploadedThumbnail?.public_id ?? null,
+          title: values.title.trim(),
+          athlete: values.athlete.trim(),
+          media_type: values.media_type,
+          media_url: uploadedMedia.url,
+          media_public_id: uploadedMedia.publicId,
+          thumbnail_url: uploadedThumbnail?.url ?? null,
+          thumbnail_public_id: uploadedThumbnail?.publicId ?? null,
         });
 
         setHighlights((prev) => [newHighlight, ...prev]);
@@ -174,6 +210,12 @@ const AdminHighlights = () => {
 
       closeForm();
     } catch (error) {
+      try {
+        await cleanupCloudinaryAssets(uploadedAssets);
+      } catch (cleanupError) {
+        console.error("Highlight upload cleanup failed:", cleanupError);
+      }
+
       setError(
         error instanceof Error ? error.message : "Could not save highlight.",
       );

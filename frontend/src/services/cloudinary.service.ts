@@ -1,30 +1,50 @@
-import type { CloudinaryUploadResult, UploadPurpose } from "../types/types";
+import type {
+  CleanupAsset,
+  CleanupResponse,
+  CloudinaryResponse,
+  UploadedFile,
+  UploadPurpose,
+  UploadSignatureResponse,
+} from "../types/types";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-export const uploadToCloudinary = async (
-  file: File,
+const getUploadSignature = async (
   purpose: UploadPurpose,
-): Promise<CloudinaryUploadResult> => {
-  const signatureResponse = await fetch(`${API_URL}/uploads/signature`, {
+): Promise<UploadSignatureResponse["result"]> => {
+  const response = await fetch(`${API_URL}/uploads/signature`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
-    credentials: "include",
-    body: JSON.stringify({ purpose }),
+    body: JSON.stringify({
+      purpose,
+    }),
   });
 
-  const signatureData = await signatureResponse.json();
+  const data = (await response.json()) as UploadSignatureResponse;
 
-  if (!signatureResponse.ok) {
-    throw new Error(signatureData.message ?? "Could not prepare upload.");
+  if (!response.ok) {
+    throw new Error(data.message ?? "Could not create upload signature.");
   }
 
-  const { timestamp, signature, folder, cloudName, apiKey } =
-    signatureData.result;
+  return data.result;
+};
 
-  const resourceType = file.type.startsWith("video/") ? "video" : "image";
+const uploadToCloudinary = async (
+  file: File,
+  purpose: UploadPurpose,
+): Promise<UploadedFile> => {
+  const {
+    timestamp,
+    signature,
+    folder,
+    resourceType,
+    allowedFormats,
+    cloudName,
+    apiKey,
+  } = await getUploadSignature(purpose);
 
   const formData = new FormData();
 
@@ -33,8 +53,9 @@ export const uploadToCloudinary = async (
   formData.append("timestamp", String(timestamp));
   formData.append("signature", signature);
   formData.append("folder", folder);
+  formData.append("allowed_formats", allowedFormats.join(","));
 
-  const uploadResponse = await fetch(
+  const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
     {
       method: "POST",
@@ -42,15 +63,57 @@ export const uploadToCloudinary = async (
     },
   );
 
-  const uploadData = await uploadResponse.json();
+  const data = (await response.json()) as
+    | CloudinaryResponse
+    | {
+        error?: {
+          message?: string;
+        };
+      };
 
-  if (!uploadResponse.ok) {
-    throw new Error(uploadData.error?.message ?? "Cloudinary upload failed.");
+  if (!response.ok) {
+    const errorMessage = "error" in data ? data.error?.message : undefined;
+
+    throw new Error(errorMessage ?? "Could not upload file to Cloudinary.");
   }
 
+  const upload = data as CloudinaryResponse;
+
   return {
-    secure_url: uploadData.secure_url,
-    public_id: uploadData.public_id,
-    resource_type: uploadData.resource_type,
+    url: upload.secure_url,
+    publicId: upload.public_id,
+    resourceType: upload.resource_type,
   };
 };
+
+const cleanupCloudinaryAssets = async (
+  assets: CleanupAsset[],
+): Promise<void> => {
+  if (assets.length === 0) return;
+
+  const response = await fetch(`${API_URL}/uploads/cleanup`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      assets,
+    }),
+  });
+
+  const data = (await response.json()) as CleanupResponse;
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Could not cleanup uploaded assets.");
+  }
+
+  if (data.result.failed.length > 0) {
+    console.error(
+      "Some Cloudinary assets could not be cleaned up:",
+      data.result.failed,
+    );
+  }
+};
+
+export { uploadToCloudinary, cleanupCloudinaryAssets };

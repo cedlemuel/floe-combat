@@ -1,53 +1,68 @@
 import cloudinary from "../config/cloudinary.js";
+import { deleteProductImage } from "../service/cloudinary.service.js";
+import type { NewProductImage } from "../types/product.js";
 
 const parseSizes = (sizes: unknown): string[] | null => {
-  if (typeof sizes !== "string") {
+  if (
+    !Array.isArray(sizes) ||
+    sizes.length === 0 ||
+    !sizes.every((size) => typeof size === "string" && size.trim().length > 0)
+  ) {
     return null;
   }
 
-  try {
-    const parsedSizes: unknown = JSON.parse(sizes);
-
-    if (
-      !Array.isArray(parsedSizes) ||
-      !parsedSizes.every(
-        (size) => typeof size === "string" && size.trim().length > 0,
-      )
-    ) {
-      return null;
-    }
-
-    return parsedSizes.map((size) => size.trim());
-  } catch {
-    return null;
-  }
+  return sizes.map((size) => size.trim());
 };
 
 const parseDeletedImageIds = (value: unknown): number[] | null => {
-  if (value === undefined || value === "") {
+  if (value === undefined) {
     return [];
   }
 
-  if (typeof value !== "string") {
+  if (
+    !Array.isArray(value) ||
+    !value.every((id) => Number.isSafeInteger(id) && id > 0)
+  ) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(value);
+  return [...new Set(value)];
+};
+
+const parseProductImages = (value: unknown): NewProductImage[] | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const images: NewProductImage[] = [];
+
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) {
+      return null;
+    }
+
+    const image = item as Record<string, unknown>;
 
     if (
-      !Array.isArray(parsed) ||
-      !parsed.every(
-        (id) => Number.isSafeInteger(id) && id > 0,
-      )
+      typeof image.image_url !== "string" ||
+      !image.image_url.trim() ||
+      typeof image.image_public_id !== "string" ||
+      !image.image_public_id.trim()
     ) {
       return null;
     }
 
-    return [...new Set(parsed)];
-  } catch {
-    return null;
+    if (!image.image_public_id.startsWith("floe-combat/products/")) {
+      return null;
+    }
+
+    images.push({
+      image_url: image.image_url.trim(),
+      image_public_id: image.image_public_id.trim(),
+    });
   }
+
+  return images;
 };
 
 const getHighlightVideoThumbnail = (publicId: string): string => {
@@ -62,6 +77,9 @@ const getHighlightVideoThumbnail = (publicId: string): string => {
   });
 };
 
-export { parseSizes, parseDeletedImageIds, getHighlightVideoThumbnail };
-
-
+export {
+  parseSizes,
+  parseDeletedImageIds,
+  parseProductImages,
+  getHighlightVideoThumbnail,
+};

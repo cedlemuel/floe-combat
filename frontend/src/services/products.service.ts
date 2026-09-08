@@ -23,21 +23,13 @@ const getProducts = async (): Promise<Product[]> => {
 const createProduct = async (
   product: ProductInput,
 ): Promise<Product> => {
-  const formData = new FormData();
-
-  formData.append("title", product.title);
-  formData.append("category", product.category);
-  formData.append("description", product.description);
-  formData.append("sizes", JSON.stringify(product.sizes));
-
-  product.images.forEach((image) => {
-    formData.append("images", image);
-  });
-
   const response = await fetch(`${API_URL}/products`, {
     method: "POST",
     credentials: "include",
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(product),
   });
 
   const data: ProductResponse = await response.json();
@@ -53,26 +45,13 @@ const updateProduct = async (
   id: number,
   product: UpdateProductInput,
 ): Promise<Product> => {
-  const formData = new FormData();
-
-  formData.append("title", product.title);
-  formData.append("category", product.category);
-  formData.append("description", product.description);
-  formData.append("sizes", JSON.stringify(product.sizes));
-
-  product.images?.forEach((image) => {
-    formData.append("images", image);
-  });
-
-  formData.append(
-    "deletedImageIds",
-    JSON.stringify(product.deletedImageIds ?? []),
-  );
-
   const response = await fetch(`${API_URL}/products/${id}`, {
     method: "PATCH",
     credentials: "include",
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(product),
   });
 
   const data: ProductResponse = await response.json();
