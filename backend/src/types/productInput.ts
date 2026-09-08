@@ -1,6 +1,7 @@
 export type CreateProductInput = {
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
 };
@@ -8,6 +9,7 @@ export type CreateProductInput = {
 export type UpdateProductInput = {
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
 };

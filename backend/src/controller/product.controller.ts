@@ -15,6 +15,7 @@ import {
   parseDeletedImageIds,
   parseProductImages,
   parseSizes,
+  validateProductCategory,
 } from "../utils/helper.js";
 
 const getProductsController = async (_req: Request, res: Response) => {
@@ -37,10 +38,8 @@ const getProductsController = async (_req: Request, res: Response) => {
 };
 
 const createProductController = async (req: Request, res: Response) => {
-  const { title, category, description, sizes, images } = req.body as Record<
-    string,
-    unknown
-  >;
+  const { title, category, subcategory, description, sizes, images } =
+    req.body as Record<string, unknown>;
 
   if (
     typeof title !== "string" ||
@@ -53,6 +52,38 @@ const createProductController = async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       message: "Title, category, and description are required.",
+    });
+
+    return;
+  }
+
+  if (
+    subcategory !== undefined &&
+    subcategory !== null &&
+    typeof subcategory !== "string"
+  ) {
+    res.status(400).json({
+      success: false,
+      message: "Subcategory must be a string.",
+    });
+
+    return;
+  }
+
+  const parsedSubcategory =
+    typeof subcategory === "string" && subcategory.trim()
+      ? subcategory.trim()
+      : null;
+
+  const categoryValidation = validateProductCategory(
+    category.trim(),
+    parsedSubcategory,
+  );
+
+  if (!categoryValidation.valid) {
+    res.status(400).json({
+      success: false,
+      message: categoryValidation.message,
     });
 
     return;
@@ -103,6 +134,7 @@ const createProductController = async (req: Request, res: Response) => {
       {
         title: title.trim(),
         category: category.trim(),
+        subcategory: parsedSubcategory,
         description: description.trim(),
         sizes: parsedSizes,
       },
@@ -140,8 +172,15 @@ const createProductController = async (req: Request, res: Response) => {
 const updateProductController = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
 
-  const { title, category, description, sizes, images, deletedImageIds } =
-    req.body as Record<string, unknown>;
+  const {
+    title,
+    category,
+    subcategory,
+    description,
+    sizes,
+    images,
+    deletedImageIds,
+  } = req.body as Record<string, unknown>;
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     res.status(400).json({
@@ -163,6 +202,38 @@ const updateProductController = async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       message: "Title, category, and description are required.",
+    });
+
+    return;
+  }
+
+  if (
+    subcategory !== undefined &&
+    subcategory !== null &&
+    typeof subcategory !== "string"
+  ) {
+    res.status(400).json({
+      success: false,
+      message: "Subcategory must be a string.",
+    });
+
+    return;
+  }
+
+  const parsedSubcategory =
+    typeof subcategory === "string" && subcategory.trim()
+      ? subcategory.trim()
+      : null;
+
+  const categoryValidation = validateProductCategory(
+    category.trim(),
+    parsedSubcategory,
+  );
+
+  if (!categoryValidation.valid) {
+    res.status(400).json({
+      success: false,
+      message: categoryValidation.message,
     });
 
     return;
@@ -258,6 +329,7 @@ const updateProductController = async (req: Request, res: Response) => {
       {
         title: title.trim(),
         category: category.trim(),
+        subcategory: parsedSubcategory,
         description: description.trim(),
         sizes: parsedSizes,
       },

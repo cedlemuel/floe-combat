@@ -9,6 +9,7 @@ CREATE TABLE products (
   id BIGSERIAL PRIMARY KEY,
   title VARCHAR(150) NOT NULL,
   category VARCHAR(100) NOT NULL,
+  subcategory VARCHAR(100),
   description TEXT NOT NULL,
   sizes TEXT[] NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

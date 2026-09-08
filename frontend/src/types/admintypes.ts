@@ -1,6 +1,7 @@
 export type ProductFormValues = {
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
   images: File[];

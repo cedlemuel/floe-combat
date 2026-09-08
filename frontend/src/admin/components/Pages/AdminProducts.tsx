@@ -6,6 +6,7 @@ import type {
   CleanupAsset,
   NewProductImage,
 } from "../../../types/types";
+import { categories } from "../../../types/types";
 import ProductFormModal from "../../components/common/ProductFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import ImagePreviewModal from "../../components/common/ImagePreviewModal";
@@ -22,7 +23,6 @@ import {
   uploadToCloudinary,
 } from "../../../services/cloudinary.service";
 
-const categories = ["SHORT SLEEVE", "LONG SLEEVE", "SPATS", "FULL SET"];
 const sizeOptions = [
   "XS",
   "S",
@@ -60,10 +60,15 @@ const AdminProducts = () => {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
 
-  const filtered = products.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
+  const filtered = products.filter((product) => {
+    const matchesSearch = product.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
     const matchesCategory =
-      categoryFilter === "ALL" || p.category === categoryFilter;
+      categoryFilter === "ALL" ||
+      product.category === categoryFilter;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -76,7 +81,7 @@ const AdminProducts = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, setCurrentPage]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -89,7 +94,9 @@ const AdminProducts = () => {
         setProducts(data);
       } catch (error) {
         setError(
-          error instanceof Error ? error.message : "Could not fetch products.",
+          error instanceof Error
+            ? error.message
+            : "Could not fetch products.",
         );
       } finally {
         setIsLoading(false);
@@ -129,7 +136,10 @@ const AdminProducts = () => {
       const newImages: NewProductImage[] = [];
 
       for (const file of values.images) {
-        const uploaded = await uploadToCloudinary(file, "product-image");
+        const uploaded = await uploadToCloudinary(
+          file,
+          "product-image",
+        );
 
         uploadedAssets.push({
           publicId: uploaded.publicId,
@@ -143,24 +153,31 @@ const AdminProducts = () => {
       }
 
       if (editingProduct) {
-        const updatedProduct = await updateProduct(editingProduct.id, {
-          title: values.title.trim(),
-          category: values.category.trim(),
-          description: values.description.trim(),
-          sizes: values.sizes,
-          images: newImages,
-          deletedImageIds: values.deletedImageIds,
-        });
+        const updatedProduct = await updateProduct(
+          editingProduct.id,
+          {
+            title: values.title.trim(),
+            category: values.category.trim(),
+            subcategory: values.subcategory,
+            description: values.description.trim(),
+            sizes: values.sizes,
+            images: newImages,
+            deletedImageIds: values.deletedImageIds,
+          },
+        );
 
         setProducts((prev) =>
           prev.map((product) =>
-            product.id === updatedProduct.id ? updatedProduct : product,
+            product.id === updatedProduct.id
+              ? updatedProduct
+              : product,
           ),
         );
       } else {
         const newProduct = await createProduct({
           title: values.title.trim(),
           category: values.category.trim(),
+          subcategory: values.subcategory,
           description: values.description.trim(),
           sizes: values.sizes,
           images: newImages,
@@ -174,11 +191,16 @@ const AdminProducts = () => {
       try {
         await cleanupCloudinaryAssets(uploadedAssets);
       } catch (cleanupError) {
-        console.error("Product upload cleanup failed:", cleanupError);
+        console.error(
+          "Product upload cleanup failed:",
+          cleanupError,
+        );
       }
 
       setError(
-        error instanceof Error ? error.message : "Could not save product.",
+        error instanceof Error
+          ? error.message
+          : "Could not save product.",
       );
     } finally {
       setIsSaving(false);
@@ -195,13 +217,17 @@ const AdminProducts = () => {
       await deleteProduct(deleteTarget.id);
 
       setProducts((prev) =>
-        prev.filter((product) => product.id !== deleteTarget.id),
+        prev.filter(
+          (product) => product.id !== deleteTarget.id,
+        ),
       );
 
       setDeleteTarget(null);
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Could not delete product.",
+        error instanceof Error
+          ? error.message
+          : "Could not delete product.",
       );
     } finally {
       setIsDeleting(false);
@@ -210,38 +236,42 @@ const AdminProducts = () => {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1">
           <FaSearch
             size={12}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-descText2"
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-descText2"
           />
+
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full bg-white/2 border border-borderColor pl-9 pr-3 py-2.5 font-montserrat text-xs text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+            className="w-full border border-borderColor bg-white/2 py-2.5 pr-3 pl-9 font-montserrat text-xs text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
           />
         </div>
 
         <select
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-xs text-descText2 focus:outline-none focus:border-floesky/40"
+          onChange={(e) =>
+            setCategoryFilter(e.target.value)
+          }
+          className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-xs text-descText2 focus:border-floesky/40 focus:outline-none"
         >
-          <option value="ALL" className="bg-black ">
-            ALL
-          </option>
-          {categories.map((c) => (
-            <option key={c} value={c} className="bg-black">
-              {c}
+          {categories.map((category) => (
+            <option
+              key={category.value}
+              value={category.value}
+              className="bg-black"
+            >
+              {category.label}
             </option>
           ))}
         </select>
 
         <button
           onClick={openAddForm}
-          className="sm:ml-auto flex items-center justify-center gap-2 bg-floesky text-black font-montserrat font-bold text-xs px-4 py-2.5 tracking-wider rounded-sm hover:opacity-90 transition"
+          className="flex items-center justify-center gap-2 rounded-sm bg-floesky px-4 py-2.5 font-montserrat text-xs font-bold tracking-wider text-black transition hover:opacity-90 sm:ml-auto"
         >
           <FaPlus size={10} />
           ADD PRODUCT
@@ -256,11 +286,13 @@ const AdminProducts = () => {
         </div>
       ) : error ? (
         <div className="flex items-center justify-center py-16">
-          <p className="font-montserrat text-xs text-red-400">{error}</p>
+          <p className="font-montserrat text-xs text-red-400">
+            {error}
+          </p>
         </div>
       ) : (
-        <div className="border border-borderColor bg-white/2 overflow-hidden">
-          <div className="hidden sm:grid grid-cols-[64px_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 border-b border-borderColor font-montserrat text-[11px] tracking-[2px] text-descText">
+        <div className="overflow-hidden border border-borderColor bg-white/2">
+          <div className="hidden grid-cols-[64px_1.5fr_1fr_1fr_auto] gap-4 border-b border-borderColor px-5 py-3 font-montserrat text-[11px] tracking-[2px] text-descText sm:grid">
             <span></span>
             <span>PRODUCT</span>
             <span>CATEGORY</span>
@@ -273,51 +305,63 @@ const AdminProducts = () => {
               {paginatedProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="grid grid-cols-[64px_1fr_auto] sm:grid-cols-[64px_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 items-center"
+                  className="grid grid-cols-[64px_1fr_auto] items-center gap-4 px-5 py-3 sm:grid-cols-[64px_1.5fr_1fr_1fr_auto]"
                 >
                   <button
                     type="button"
                     onClick={() =>
-                      product.images.length > 0 && setPreviewProduct(product)
+                      product.images.length > 0 &&
+                      setPreviewProduct(product)
                     }
                     disabled={product.images.length === 0}
                     aria-label={`Preview ${product.title} image`}
-                    className="w-12 h-12 rounded-sm overflow-hidden bg-white/5 shrink-0 disabled:cursor-default enabled:cursor-zoom-in enabled:hover:ring-2 enabled:hover:ring-floesky/60 transition"
+                    className="h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-white/5 transition disabled:cursor-default enabled:cursor-zoom-in enabled:hover:ring-2 enabled:hover:ring-floesky/60"
                   >
                     {product.images.length > 0 ? (
                       <img
                         src={getPrimaryImageUrl(product)}
                         alt={product.title}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/15">
+                      <div className="flex h-full w-full items-center justify-center text-white/15">
                         <FaImage size={14} />
                       </div>
                     )}
                   </button>
 
-                  <div className="min-w-0 flex flex-col gap-0.5">
-                    <span className="font-montserrat text-sm font-bold text-white truncate">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate font-montserrat text-sm font-bold text-white">
                       {product.title}
                     </span>
-                    <span className="font-montserrat text-xs text-descText2 truncate sm:hidden">
+
+                    <span className="truncate font-montserrat text-xs text-descText2 sm:hidden">
                       {product.category}
+                      {product.subcategory
+                        ? ` / ${product.subcategory}`
+                        : ""}
                     </span>
-                    <p className="hidden sm:block font-montserrat text-xs text-descText2 truncate max-w-xs">
+
+                    <p className="hidden max-w-xs truncate font-montserrat text-xs text-descText2 sm:block">
                       {product.description}
                     </p>
                   </div>
 
-                  <span className="hidden sm:inline font-montserrat text-[11px] tracking-wider text-floesky">
+                  <span className="hidden font-montserrat text-[11px] tracking-wider text-floesky sm:inline">
                     {product.category}
+
+                    {product.subcategory && (
+                      <span className="block text-[10px] text-descText2">
+                        {product.subcategory}
+                      </span>
+                    )}
                   </span>
 
-                  <div className="hidden sm:flex flex-wrap gap-1">
+                  <div className="hidden flex-wrap gap-1 sm:flex">
                     {product.sizes.map((size) => (
                       <span
                         key={size}
-                        className="text-[10px] px-1.5 py-0.5 border border-borderColor text-descText2"
+                        className="border border-borderColor px-1.5 py-0.5 text-[10px] text-descText2"
                       >
                         {size}
                       </span>
@@ -326,16 +370,21 @@ const AdminProducts = () => {
 
                   <div className="flex items-center justify-end gap-2">
                     <button
-                      onClick={() => openEditForm(product)}
+                      onClick={() =>
+                        openEditForm(product)
+                      }
                       aria-label={`Edit ${product.title}`}
-                      className="w-8 h-8 flex items-center justify-center rounded-sm text-descText2 hover:text-floesky hover:bg-white/5 transition"
+                      className="flex h-8 w-8 items-center justify-center rounded-sm text-descText2 transition hover:bg-white/5 hover:text-floesky"
                     >
                       <FaPen size={12} />
                     </button>
+
                     <button
-                      onClick={() => setDeleteTarget(product)}
+                      onClick={() =>
+                        setDeleteTarget(product)
+                      }
                       aria-label={`Delete ${product.title}`}
-                      className="w-8 h-8 flex items-center justify-center rounded-sm text-descText2 hover:text-red-400 hover:bg-white/5 transition"
+                      className="flex h-8 w-8 items-center justify-center rounded-sm text-descText2 transition hover:bg-white/5 hover:text-red-400"
                     >
                       <FaTrash size={12} />
                     </button>
@@ -345,10 +394,11 @@ const AdminProducts = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 py-16">
-              <span className="text-white/10 font-archivo text-5xl font-bold">
+              <span className="font-archivo text-5xl font-bold text-white/10">
                 0
               </span>
-              <p className="text-white/25 font-montserrat text-xs font-bold tracking-widest">
+
+              <p className="font-montserrat text-xs font-bold tracking-widest text-white/25">
                 NO PRODUCTS FOUND
               </p>
             </div>

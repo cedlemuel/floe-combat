@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { HighlightFormValues } from "./admintypes";
-import type { Product } from "./types";
+import type { CategoryOption, Product } from "./types";
 
 export type ReviewProps = {
   isOpen: boolean;
@@ -73,4 +73,13 @@ export type PaginationProps = {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+};
+
+export type CategoryFilterProps = {
+  option: CategoryOption;
+  isActive: boolean;
+  activeSubcategory: string | null;
+  onSelectCategory: (value: string) => void;
+  onSelectSubcategory: (value: string) => void;
+  delay?: number;
 };

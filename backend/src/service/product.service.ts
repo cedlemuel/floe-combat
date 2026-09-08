@@ -1,5 +1,9 @@
 import pool from "../db/pool.js";
-import type { Product, NewProductImage, ProductImage } from "../types/product.js";
+import type {
+  Product,
+  NewProductImage,
+  ProductImage,
+} from "../types/product.js";
 import type {
   CreateProductInput,
   UpdateProductInput,
@@ -9,6 +13,7 @@ const productColumns = `
   p.id,
   p.title,
   p.category,
+  p.subcategory,
   p.description,
   p.sizes,
   p.created_at,
@@ -63,16 +68,23 @@ const createProduct = async (
 
     const result = await client.query<{ id: number }>(
       `
-        INSERT INTO products (
-          title,
-          category,
-          description,
-          sizes
-        )
-        VALUES ($1, $2, $3, $4)
-        RETURNING id
-      `,
-      [input.title, input.category, input.description, input.sizes],
+    INSERT INTO products (
+      title,
+      category,
+      subcategory,
+      description,
+      sizes
+    )
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id
+  `,
+      [
+        input.title,
+        input.category,
+        input.subcategory,
+        input.description,
+        input.sizes,
+      ],
     );
 
     const product = result.rows[0];
@@ -167,19 +179,21 @@ const updateProduct = async (
 
     const result = await client.query(
       `
-        UPDATE products
-        SET
-          title = $1,
-          category = $2,
-          description = $3,
-          sizes = $4,
-          updated_at = NOW()
-        WHERE id = $5
-        RETURNING id
-      `,
+    UPDATE products
+    SET
+      title = $1,
+      category = $2,
+      subcategory = $3,
+      description = $4,
+      sizes = $5,
+      updated_at = NOW()
+    WHERE id = $6
+    RETURNING id
+  `,
       [
         input.title,
         input.category,
+        input.subcategory,
         input.description,
         input.sizes,
         id,
@@ -231,12 +245,7 @@ const updateProduct = async (
           )
           VALUES ($1, $2, $3, false, $4)
         `,
-        [
-          id,
-          image.image_url,
-          image.image_public_id,
-          sortOrder,
-        ],
+        [id, image.image_url, image.image_public_id, sortOrder],
       );
 
       sortOrder++;

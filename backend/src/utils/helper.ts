@@ -77,9 +77,53 @@ const getHighlightVideoThumbnail = (publicId: string): string => {
   });
 };
 
+const productCategories = {
+  TOP: ["RASHGUARD", "DRIFIT"],
+  SHORTS: [],
+  GI: [],
+  SINGLETS: [],
+  "FULL SET": [],
+} as const;
+
+const validateProductCategory = (
+  category: string,
+  subcategory: string | null,
+) => {
+  const allowedSubcategories =
+    productCategories[category as keyof typeof productCategories];
+
+  if (!allowedSubcategories) {
+    return {
+      valid: false,
+      message: "Invalid product category.",
+    };
+  }
+
+  if (subcategory && !allowedSubcategories.includes(subcategory as never)) {
+    return {
+      valid: false,
+      message: "Invalid product subcategory.",
+    };
+  }
+
+  if (allowedSubcategories.length === 0 && subcategory) {
+    return {
+      valid: false,
+      message: "This category does not support subcategories.",
+    };
+  }
+
+  return {
+    valid: true,
+    message: "",
+  };
+};
+
 export {
   parseSizes,
   parseDeletedImageIds,
   parseProductImages,
   getHighlightVideoThumbnail,
+  productCategories,
+  validateProductCategory,
 };

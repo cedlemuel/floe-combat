@@ -4,6 +4,7 @@ export type Product = {
   id: number;
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
   images: ProductImage[];
@@ -38,6 +39,7 @@ export type ProductsResponse = {
 export type ProductInput = {
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
   images: NewProductImage[];
@@ -46,6 +48,7 @@ export type ProductInput = {
 export type UpdateProductInput = {
   title: string;
   category: string;
+  subcategory: string | null;
   description: string;
   sizes: string[];
   images: NewProductImage[];
@@ -203,3 +206,18 @@ export type CleanupResponse = {
     failed: string[];
   };
 };
+
+export interface CategoryOption {
+  label: string;
+  value: string;
+  subcategories?: string[];
+}
+
+export const categories: CategoryOption[] = [
+  { label: "ALL", value: "ALL" },
+  { label: "TOP", value: "TOP", subcategories: ["RASHGUARD", "DRIFIT"] },
+  { label: "SHORTS", value: "SHORTS" },
+  { label: "GI", value: "GI" },
+  { label: "SINGLETS", value: "SINGLETS" },
+  { label: "FULL SET", value: "FULL SET" },
+];

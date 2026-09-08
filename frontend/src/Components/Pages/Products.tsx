@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import FilterButton from "../common/FilterButton";
+import CategoryFilter from "../common/CategoryFilter";
 import type { Product } from "../../types/types";
 import { getProducts } from "../../services/products.service";
 import ProductPreviewModal from "../common/ProductPreviewModal";
 import ProductSkeleton from "../common/ProductSkeleton";
 import Pagination from "../common/Pagination";
-
-const categories = ["ALL", "SHORT SLEEVE", "LONG SLEEVE", "SPATS", "FULL SET"];
+import { categories } from "../../types/types";
 
 const getPrimaryImageUrl = (product: Product) => {
   return (
@@ -18,7 +17,11 @@ const getPrimaryImageUrl = (product: Product) => {
 };
 
 const Products = () => {
-  const [active, setActive] = useState("ALL");
+  const [activeCategory, setActiveCategory] = useState("ALL");
+
+  const [activeSubcategory, setActiveSubcategory] = useState<string | null>(
+    null,
+  );
   const [selected, setSelected] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,7 +53,7 @@ const Products = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [active]);
+  }, [activeCategory, activeSubcategory]);
 
   useEffect(() => {
     document.body.style.overflow = selected ? "hidden" : "";
@@ -59,19 +62,39 @@ const Products = () => {
     };
   }, [selected]);
 
-  const filtered =
-    active === "ALL"
-      ? products
-      : products.filter((product) => product.category === active);
+  const handleSelectCategory = (value: string) => {
+    setActiveCategory(value);
+    setActiveSubcategory(null);
+  };
+
+  const handleSelectSubcategory = (
+    parentValue: string,
+    subcategory: string,
+  ) => {
+    setActiveCategory(parentValue);
+    setActiveSubcategory(subcategory);
+  };
+
+  const filtered = products.filter((product) => {
+    if (activeCategory === "ALL") {
+      return true;
+    }
+
+    if (activeSubcategory) {
+      return (
+        product.category === activeCategory &&
+        product.subcategory === activeSubcategory
+      );
+    }
+
+    return product.category === activeCategory;
+  });
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   const startIndex = (currentPage - 1) * itemsPerPage;
 
-  const currentProducts = filtered.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const currentProducts = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   const emptySlots = itemsPerPage - currentProducts.length;
 
@@ -100,11 +123,17 @@ const Products = () => {
 
         <div className="flex gap-2 sm:gap-4 py-6 sm:py-8 max-w-7xl w-full border-y border-borderColor flex-wrap">
           {categories.map((cat, i) => (
-            <FilterButton
-              key={cat}
-              label={cat}
-              isActive={active === cat}
-              onClick={() => setActive(cat)}
+            <CategoryFilter
+              key={cat.value}
+              option={cat}
+              isActive={activeCategory === cat.value}
+              activeSubcategory={
+                activeCategory === cat.value ? activeSubcategory : null
+              }
+              onSelectCategory={handleSelectCategory}
+              onSelectSubcategory={(sub) =>
+                handleSelectSubcategory(cat.value, sub)
+              }
               delay={0.1 * i}
             />
           ))}
@@ -143,6 +172,7 @@ const Products = () => {
                   <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex flex-col gap-1.5 sm:gap-2">
                     <span className="text-floesky font-montserrat text-xs font-bold tracking-widest">
                       {project.category}
+                      {project.subcategory ? ` / ${project.subcategory}` : ""}
                     </span>
 
                     <h3 className="font-archivo text-xl sm:text-2xl font-bold tracking-tight">

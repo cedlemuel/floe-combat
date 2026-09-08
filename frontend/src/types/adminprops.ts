@@ -3,12 +3,12 @@ import type {
   HighlightFormValues,
   ReviewFormValues,
 } from "./admintypes";
-import type { Product, Highlight, Review, ProductImage } from "./types";
+import type { Product, Highlight, Review, ProductImage, CategoryOption } from "./types";
 
 export type ProductFormModalProps = {
   isOpen: boolean;
   editingProduct: Product | null;
-  categories: string[];
+  categories: CategoryOption[];
   sizeOptions: string[];
   isSubmitting: boolean;
   onClose: () => void;
@@ -61,7 +61,7 @@ export type HighlightImagePreviewModalProps = {
 export type SidebarProps = {
   isOpen: boolean;
   onClose: () => void;
-}
+};
 
 export type PaginationProps = {
   currentPage: number;
