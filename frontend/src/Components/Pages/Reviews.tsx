@@ -17,6 +17,7 @@ import {
 
 import { getProducts } from "../../services/products.service";
 import usePagination from "../../hooks/usePagination";
+import ReviewSkeleton from "../common/ReviewSkeleton";
 
 const filters = ["ALL", "5", "4", "3", "2", "1"];
 
@@ -62,13 +63,13 @@ const Reviews = () => {
   const filtered =
     filter === "ALL"
       ? approvedReviews
-      : approvedReviews.filter(
-          (review) => review.rating === Number(filter),
-        );
+      : approvedReviews.filter((review) => review.rating === Number(filter));
 
   const sortedFiltered = [...filtered].sort(
     (a, b) => Number(b.featured) - Number(a.featured),
   );
+
+  const reviewsPerPage = 6;
 
   const {
     currentPage,
@@ -76,17 +77,15 @@ const Reviews = () => {
     paginatedItems: currentReviews,
     setCurrentPage,
   } = usePagination(sortedFiltered, {
-    pageSize: 6,
+    pageSize: reviewsPerPage,
   });
 
-  const emptySlots = 6 - currentReviews.length;
+  const emptySlots = reviewsPerPage - currentReviews.length;
 
   const average =
     approvedReviews.length > 0
-      ? approvedReviews.reduce(
-          (sum, review) => sum + review.rating,
-          0,
-        ) / approvedReviews.length
+      ? approvedReviews.reduce((sum, review) => sum + review.rating, 0) /
+        approvedReviews.length
       : 0;
 
   useEffect(() => {
@@ -100,9 +99,7 @@ const Reviews = () => {
         setReviewList(data);
       } catch (error) {
         setReviewsError(
-          error instanceof Error
-            ? error.message
-            : "Could not fetch reviews.",
+          error instanceof Error ? error.message : "Could not fetch reviews.",
         );
       } finally {
         setIsReviewsLoading(false);
@@ -119,9 +116,7 @@ const Reviews = () => {
         setProducts(data);
       } catch (error) {
         setProductsError(
-          error instanceof Error
-            ? error.message
-            : "Could not fetch products.",
+          error instanceof Error ? error.message : "Could not fetch products.",
         );
       } finally {
         setIsProductsLoading(false);
@@ -136,9 +131,7 @@ const Reviews = () => {
     setCurrentPage(1);
   }, [filter, setCurrentPage]);
 
-  const handleSubmit = async (
-    values: SubmitReviewFormValues,
-  ) => {
+  const handleSubmit = async (values: SubmitReviewFormValues) => {
     if (isSubmitting) return;
 
     try {
@@ -162,9 +155,7 @@ const Reviews = () => {
       }, 5000);
     } catch (error) {
       setSubmitError(
-        error instanceof Error
-          ? error.message
-          : "Could not submit review.",
+        error instanceof Error ? error.message : "Could not submit review.",
       );
     } finally {
       setIsSubmitting(false);
@@ -249,15 +240,11 @@ const Reviews = () => {
               setIsOpen(true);
             }}
             disabled={
-              isProductsLoading ||
-              products.length === 0 ||
-              !!productsError
+              isProductsLoading || products.length === 0 || !!productsError
             }
             className="border border-floesky text-floesky px-4 py-2 text-xs font-bold tracking-widest hover:bg-floesky/10 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isProductsLoading
-              ? "LOADING PRODUCTS..."
-              : "SUBMIT REVIEW"}
+            {isProductsLoading ? "LOADING PRODUCTS..." : "SUBMIT REVIEW"}
           </button>
 
           {productsError && (
@@ -282,8 +269,7 @@ const Reviews = () => {
                 }}
                 className="text-floesky font-montserrat text-xs"
               >
-                Thanks! Your review has been submitted and is
-                awaiting approval.
+                Thanks! Your review has been submitted and is awaiting approval.
               </motion.p>
             )}
           </AnimatePresence>
@@ -303,10 +289,10 @@ const Reviews = () => {
         </div>
 
         {isReviewsLoading ? (
-          <div className="flex min-h-60 items-center justify-center w-full max-w-7xl">
-            <p className="font-montserrat text-xs font-bold tracking-widest text-white/30">
-              LOADING REVIEWS...
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 w-full max-w-7xl border-b border-borderColor">
+            {Array.from({ length: reviewsPerPage }).map((_, index) => (
+              <ReviewSkeleton key={index} />
+            ))}
           </div>
         ) : reviewsError ? (
           <div className="flex min-h-60 items-center justify-center w-full max-w-7xl">
@@ -356,9 +342,7 @@ const Reviews = () => {
 
                   <div className="flex items-center gap-3 pt-2">
                     <div className="w-8 h-8 rounded-full bg-floesky/20 text-floesky font-archivo font-normal flex items-center justify-center">
-                      {review.author
-                        .charAt(0)
-                        .toUpperCase()}
+                      {review.author.charAt(0).toUpperCase()}
                     </div>
 
                     <div className="flex flex-col">

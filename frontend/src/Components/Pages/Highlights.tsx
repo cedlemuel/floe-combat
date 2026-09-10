@@ -5,6 +5,7 @@ import type { Highlight } from "../../types/types";
 import Pagination from "../common/Pagination";
 import usePagination from "../../hooks/usePagination";
 import { getHighlights } from "../../services/highlights.service";
+import HighlightSkeleton from "../common/HighlightSkeleton";
 
 const Highlights = () => {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -97,10 +98,10 @@ const Highlights = () => {
         <div className="w-full max-w-7xl pb-28">
           <div className="relative">
             {isLoading ? (
-              <div className="flex min-h-80 items-center justify-center">
-                <p className="font-montserrat text-xs font-bold tracking-widest text-white/30">
-                  LOADING HIGHLIGHTS...
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full">
+                {Array.from({ length: itemsPerPage }).map((_, index) => (
+                  <HighlightSkeleton key={index} />
+                ))}
               </div>
             ) : error ? (
               <div className="flex min-h-80 items-center justify-center">

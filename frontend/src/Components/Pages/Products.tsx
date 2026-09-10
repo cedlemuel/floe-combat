@@ -141,7 +141,7 @@ const Products = () => {
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 max-w-7xl w-full pb-16 sm:pb-20">
-            {Array.from({ length: 6 }).map((_, index) => (
+            {Array.from({ length: itemsPerPage }).map((_, index) => (
               <ProductSkeleton key={index} />
             ))}
           </div>
