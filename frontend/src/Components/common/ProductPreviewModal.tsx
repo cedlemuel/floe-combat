@@ -72,7 +72,7 @@ const ProductPreviewModal = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-6 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-6 backdrop-blur-sm custom-scroll"
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -184,6 +184,23 @@ const ProductPreviewModal = ({
                     className="border border-white/20 px-3 py-1.5 font-montserrat text-xs text-white"
                   >
                     {size}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-borderColor pt-5">
+              <span className="font-montserrat text-[11px] tracking-widest text-white/50">
+                AVAILABLE FOR
+              </span>
+
+              <div className="flex flex-wrap gap-2">
+                {["MENS", "WOMENS", "KIDS"].map((audience) => (
+                  <span
+                    key={audience}
+                    className="border border-floesky/40 text-floesky px-3 py-1.5 font-montserrat text-xs font-bold"
+                  >
+                    {audience}
                   </span>
                 ))}
               </div>

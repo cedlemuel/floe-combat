@@ -152,18 +152,18 @@ const Products = () => {
         ) : filtered.length > 0 ? (
           <div className="w-full max-w-7xl pb-16 sm:pb-20">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 w-full">
-              {currentProducts.map((project, i) => (
+              {currentProducts.map((product, i) => (
                 <motion.div
-                  key={project.id}
+                  key={product.id}
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1 * i }}
-                  onClick={() => setSelected(project)}
+                  onClick={() => setSelected(product)}
                   className="group relative aspect-4/5 overflow-hidden cursor-pointer"
                 >
                   <img
-                    src={getPrimaryImageUrl(project)}
-                    alt={project.title}
+                    src={getPrimaryImageUrl(product)}
+                    alt={product.title}
                     className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
                   />
 
@@ -171,20 +171,20 @@ const Products = () => {
 
                   <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex flex-col gap-1.5 sm:gap-2">
                     <span className="text-floesky font-montserrat text-xs font-bold tracking-widest">
-                      {project.category}
-                      {project.subcategory ? ` / ${project.subcategory}` : ""}
+                      {product.category}
+                      {product.subcategory ? ` / ${product.subcategory}` : ""}
                     </span>
 
                     <h3 className="font-archivo text-xl sm:text-2xl font-bold tracking-tight">
-                      {project.title}
+                      {product.title}
                     </h3>
 
                     <p className="text-descText font-montserrat text-xs sm:text-sm leading-relaxed line-clamp-2">
-                      {project.description}
+                      {product.description}
                     </p>
 
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {project.sizes.map((size) => (
+                      {product.sizes.map((size) => (
                         <span
                           key={size}
                           className="text-[10px] px-2 py-0.5 border border-white/20 text-white/70"
