@@ -1,41 +1,13 @@
 import type { ReactNode } from "react";
-import type { HighlightFormValues } from "./admintypes";
-import type { CategoryOption, Product } from "./types";
-
-export type ReviewProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  form: {
-    rating: number;
-    text: string;
-    author: string;
-    role: string;
-    design: string;
-  };
-  setForm: React.Dispatch<
-    React.SetStateAction<{
-      rating: number;
-      text: string;
-      author: string;
-      role: string;
-      design: string;
-    }>
-  >;
-  productOptions: string[];
-  onSubmit: () => void;
-};
+import type {
+  CategoryOption,
+  Highlight,
+  Product,
+} from "./types";
 
 export type ProductPreviewModalProps = {
   product: Product | null;
   onClose: () => void;
-};
-
-export type HighlightFormModalProps = {
-  isOpen: boolean;
-  editingHighlight: Highlight | null;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onSubmit: (values: HighlightFormValues) => void;
 };
 
 export type SubmitReviewFormValues = {
@@ -45,11 +17,6 @@ export type SubmitReviewFormValues = {
   product_name: string;
   rating: number;
   review_text: string;
-};
-
-export type ProductOption = {
-  id: number;
-  title: string;
 };
 
 export type SubmitReviewModalProps = {
@@ -82,4 +49,9 @@ export type CategoryFilterProps = {
   onSelectCategory: (value: string) => void;
   onSelectSubcategory: (value: string) => void;
   delay?: number;
+};
+
+export type HighlightPreviewModalProps = {
+  selected: Highlight | null;
+  onClose: () => void;
 };

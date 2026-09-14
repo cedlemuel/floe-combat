@@ -1,32 +1,29 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import {
   FaCloudUploadAlt,
   FaImage,
-  FaTimes,
-  FaTrash,
-  FaVideo,
   FaSpinner,
+  FaTimes,
+  FaVideo,
 } from "react-icons/fa";
-
-import type { HighlightFormValues } from "../../../types/admintypes";
+import type {
+  FormMediaItem,
+  HighlightFormValues,
+} from "../../../types/admintypes";
 import type { HighlightFormModalProps } from "../../../types/adminprops";
+import ReorderableMediaItem from "./ReorderableMediaItem";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
 const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
-const emptyForm: HighlightFormValues = {
-  title: "",
-  athlete: "",
-  media_type: "image",
-  mediaFile: null,
-  thumbnailFile: null,
-  thumbnailRemoved: false,
-};
+const makeKey = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 
 const HighlightFormModal = ({
   isOpen,
@@ -36,131 +33,183 @@ const HighlightFormModal = ({
   onClose,
   onSubmit,
 }: HighlightFormModalProps) => {
-  const [form, setForm] = useState<HighlightFormValues>(emptyForm);
-
-  const [mediaPreview, setMediaPreview] = useState("");
-  const [thumbnailPreview, setThumbnailPreview] = useState("");
-
-  const [isMediaDragging, setIsMediaDragging] = useState(false);
-  const [isThumbnailDragging, setIsThumbnailDragging] = useState(false);
-
+  const [title, setTitle] = useState("");
+  const [athlete, setAthlete] = useState("");
+  const [media, setMedia] = useState<FormMediaItem[]>([]);
   const [fileError, setFileError] = useState("");
 
-  const mediaInputRef = useRef<HTMLInputElement>(null);
-  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const mediaRef = useRef<FormMediaItem[]>([]);
 
-  const mediaObjectUrlRef = useRef<string | null>(null);
-  const thumbnailObjectUrlRef = useRef<string | null>(null);
+  const revokeObjectUrls = (items: FormMediaItem[]) => {
+    for (const item of items) {
+      if (item.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+
+      if (item.thumbnailPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(item.thumbnailPreviewUrl);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
 
-    if (mediaObjectUrlRef.current) {
-      URL.revokeObjectURL(mediaObjectUrlRef.current);
-      mediaObjectUrlRef.current = null;
-    }
-
-    if (thumbnailObjectUrlRef.current) {
-      URL.revokeObjectURL(thumbnailObjectUrlRef.current);
-      thumbnailObjectUrlRef.current = null;
-    }
-
     setFileError("");
-    setIsMediaDragging(false);
-    setIsThumbnailDragging(false);
+    setTitle(editingHighlight?.title ?? "");
+    setAthlete(editingHighlight?.athlete ?? "");
 
-    setForm({
-      title: editingHighlight?.title ?? "",
-      athlete: editingHighlight?.athlete ?? "",
-      media_type: editingHighlight?.media_type ?? "image",
-      mediaFile: null,
-      thumbnailFile: null,
-      thumbnailRemoved: false,
+    setMedia((current) => {
+      revokeObjectUrls(current);
+
+      if (!editingHighlight) {
+        return [];
+      }
+
+      return editingHighlight.media.map((item) => ({
+        id: item.id,
+        key: `existing-${item.id}`,
+        media_type: item.media_type,
+        mediaFile: null,
+        media_url: item.media_url,
+        media_public_id: item.media_public_id,
+        thumbnailFile: null,
+        thumbnail_url: item.thumbnail_url,
+        thumbnail_public_id: item.thumbnail_public_id,
+        sort_order: item.sort_order,
+        previewUrl: item.media_url,
+        thumbnailPreviewUrl: item.thumbnail_url ?? "",
+      }));
     });
 
-    setMediaPreview(editingHighlight?.media_url ?? "");
-    setThumbnailPreview(editingHighlight?.thumbnail_url ?? "");
-
-    if (mediaInputRef.current) {
-      mediaInputRef.current.value = "";
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
     }
 
-    if (thumbnailInputRef.current) {
-      thumbnailInputRef.current.value = "";
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
     }
   }, [isOpen, editingHighlight]);
 
   useEffect(() => {
-    return () => {
-      if (mediaObjectUrlRef.current) {
-        URL.revokeObjectURL(mediaObjectUrlRef.current);
-      }
+    mediaRef.current = media;
+  }, [media]);
 
-      if (thumbnailObjectUrlRef.current) {
-        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
-      }
+  useEffect(() => {
+    return () => {
+      revokeObjectUrls(mediaRef.current);
     };
   }, []);
 
-  const handleMediaFile = (file?: File) => {
-    if (!file || isSubmitting) return;
+  const addMediaFiles = (
+    files: FileList | File[] | null,
+    mediaType: "image" | "video",
+  ) => {
+    if (!files || files.length === 0 || isSubmitting) {
+      return;
+    }
 
     setFileError("");
 
-    const allowedTypes =
-      form.media_type === "image" ? IMAGE_TYPES : VIDEO_TYPES;
+    const newItems: FormMediaItem[] = [];
 
-    if (!allowedTypes.includes(file.type)) {
-      setFileError(
-        form.media_type === "image"
-          ? "Only JPG, PNG, and WEBP images are allowed."
-          : "Only MP4, WEBM, and MOV videos are allowed.",
-      );
+    for (const file of Array.from(files)) {
+      const allowedTypes = mediaType === "image" ? IMAGE_TYPES : VIDEO_TYPES;
 
-      return;
+      const maxSize = mediaType === "image" ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+
+      if (!allowedTypes.includes(file.type)) {
+        setFileError(
+          mediaType === "image"
+            ? "Only JPG, PNG, and WEBP images are allowed."
+            : "Only MP4, WEBM, and MOV videos are allowed.",
+        );
+
+        continue;
+      }
+
+      if (file.size > maxSize) {
+        setFileError(
+          mediaType === "image"
+            ? "Images must be 5 MB or smaller."
+            : "Videos must be 50 MB or smaller.",
+        );
+
+        continue;
+      }
+
+      const previewUrl = URL.createObjectURL(file);
+
+      newItems.push({
+        key: makeKey(),
+        media_type: mediaType,
+        mediaFile: file,
+        thumbnailFile: null,
+        sort_order: 0,
+        previewUrl,
+        thumbnailPreviewUrl: "",
+      });
     }
 
-    const maxSize =
-      form.media_type === "image" ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+    setMedia((prev) =>
+      [...prev, ...newItems].map((item, index) => ({
+        ...item,
+        sort_order: index,
+      })),
+    );
 
-    if (file.size > maxSize) {
-      setFileError(
-        form.media_type === "image"
-          ? "Image must be 5 MB or smaller."
-          : "Video must be 50 MB or smaller.",
-      );
-
-      return;
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
     }
 
-    if (mediaObjectUrlRef.current) {
-      URL.revokeObjectURL(mediaObjectUrlRef.current);
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-
-    mediaObjectUrlRef.current = previewUrl;
-
-    setMediaPreview(previewUrl);
-
-    setForm((prev) => ({
-      ...prev,
-      mediaFile: file,
-    }));
-
-    if (mediaInputRef.current) {
-      mediaInputRef.current.value = "";
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
     }
   };
 
-  const handleThumbnailFile = (file?: File) => {
+  const handleDrop = (files: FileList) => {
+    if (isSubmitting) return;
+
+    setFileError("");
+
+    const images: File[] = [];
+    const videos: File[] = [];
+    let hasInvalidFile = false;
+
+    for (const file of Array.from(files)) {
+      if (IMAGE_TYPES.includes(file.type)) {
+        images.push(file);
+      } else if (VIDEO_TYPES.includes(file.type)) {
+        videos.push(file);
+      } else {
+        hasInvalidFile = true;
+      }
+    }
+
+    if (images.length > 0) {
+      addMediaFiles(images, "image");
+    }
+
+    if (videos.length > 0) {
+      addMediaFiles(videos, "video");
+    }
+
+    if (hasInvalidFile) {
+      setFileError(
+        "Some files were skipped. Only JPG, PNG, WEBP, MP4, WEBM, and MOV are allowed.",
+      );
+    }
+  };
+
+  const addThumbnail = (key: string, file: File | undefined) => {
     if (!file || isSubmitting) return;
 
     setFileError("");
 
     if (!IMAGE_TYPES.includes(file.type)) {
       setFileError("Video thumbnail must be a JPG, PNG, or WEBP image.");
-
       return;
     }
 
@@ -169,194 +218,130 @@ const HighlightFormModal = ({
       return;
     }
 
-    if (thumbnailObjectUrlRef.current) {
-      URL.revokeObjectURL(thumbnailObjectUrlRef.current);
-    }
-
     const previewUrl = URL.createObjectURL(file);
 
-    thumbnailObjectUrlRef.current = previewUrl;
+    setMedia((prev) =>
+      prev.map((item) => {
+        if (item.key !== key) return item;
 
-    setThumbnailPreview(previewUrl);
+        if (item.thumbnailPreviewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(item.thumbnailPreviewUrl);
+        }
 
-    setForm((prev) => ({
-      ...prev,
-      thumbnailFile: file,
-      thumbnailRemoved: false,
-    }));
-
-    if (thumbnailInputRef.current) {
-      thumbnailInputRef.current.value = "";
-    }
+        return {
+          ...item,
+          thumbnailFile: file,
+          thumbnailPreviewUrl: previewUrl,
+        };
+      }),
+    );
   };
 
-  const handleMediaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleMediaFile(e.target.files?.[0]);
-  };
-
-  const handleThumbnailInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    handleThumbnailFile(e.target.files?.[0]);
-  };
-
-  const handleMediaDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsMediaDragging(false);
-
+  const removeThumbnail = (key: string) => {
     if (isSubmitting) return;
 
-    handleMediaFile(e.dataTransfer.files?.[0]);
+    setMedia((prev) =>
+      prev.map((item) => {
+        if (item.key !== key) return item;
+
+        if (item.thumbnailPreviewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(item.thumbnailPreviewUrl);
+        }
+
+        return {
+          ...item,
+          thumbnailFile: null,
+          thumbnail_url: null,
+          thumbnail_public_id: null,
+          thumbnailPreviewUrl: "",
+        };
+      }),
+    );
   };
 
-  const handleThumbnailDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsThumbnailDragging(false);
-
+  const removeMedia = (key: string) => {
     if (isSubmitting) return;
 
-    handleThumbnailFile(e.dataTransfer.files?.[0]);
+    setMedia((prev) => {
+      const target = prev.find((item) => item.key === key);
+
+      if (target?.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+
+      if (target?.thumbnailPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(target.thumbnailPreviewUrl);
+      }
+
+      return prev
+        .filter((item) => item.key !== key)
+        .map((item, index) => ({
+          ...item,
+          sort_order: index,
+        }));
+    });
   };
 
-  const removeMedia = () => {
+  const handleReorder = (reorderedMedia: FormMediaItem[]) => {
     if (isSubmitting) return;
 
-    if (mediaObjectUrlRef.current) {
-      URL.revokeObjectURL(mediaObjectUrlRef.current);
-      mediaObjectUrlRef.current = null;
-    }
-
-    setMediaPreview(editingHighlight?.media_url ?? "");
-
-    setForm((prev) => ({
-      ...prev,
-      mediaFile: null,
-    }));
-
-    if (mediaInputRef.current) {
-      mediaInputRef.current.value = "";
-    }
+    setMedia(
+      reorderedMedia.map((item, index) => ({
+        ...item,
+        sort_order: index,
+      })),
+    );
   };
 
-  const removeThumbnail = () => {
-    if (isSubmitting) return;
-
-    if (thumbnailObjectUrlRef.current) {
-      URL.revokeObjectURL(thumbnailObjectUrlRef.current);
-      thumbnailObjectUrlRef.current = null;
-
-      setThumbnailPreview(editingHighlight?.thumbnail_url ?? "");
-
-      setForm((prev) => ({
-        ...prev,
-        thumbnailFile: null,
-        thumbnailRemoved: false,
-      }));
-    } else {
-      setThumbnailPreview("");
-
-      setForm((prev) => ({
-        ...prev,
-        thumbnailFile: null,
-        thumbnailRemoved: true,
-      }));
-    }
-
-    if (thumbnailInputRef.current) {
-      thumbnailInputRef.current.value = "";
-    }
-  };
-
-  const handleMediaTypeChange = (mediaType: "image" | "video") => {
-    if (isSubmitting) return;
-    if (mediaType === form.media_type) return;
-
-    setFileError("");
-
-    if (mediaObjectUrlRef.current) {
-      URL.revokeObjectURL(mediaObjectUrlRef.current);
-      mediaObjectUrlRef.current = null;
-    }
-
-    if (thumbnailObjectUrlRef.current) {
-      URL.revokeObjectURL(thumbnailObjectUrlRef.current);
-      thumbnailObjectUrlRef.current = null;
-    }
-
-    setMediaPreview("");
-    setThumbnailPreview("");
-
-    setForm((prev) => ({
-      ...prev,
-      media_type: mediaType,
-      mediaFile: null,
-      thumbnailFile: null,
-      thumbnailRemoved: mediaType === "image" ? true : prev.thumbnailRemoved,
-    }));
-
-    if (mediaInputRef.current) {
-      mediaInputRef.current.value = "";
-    }
-
-    if (thumbnailInputRef.current) {
-      thumbnailInputRef.current.value = "";
-    }
-  };
-
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
 
     setFileError("");
 
-    if (!form.title.trim() || !form.athlete.trim()) {
+    if (!title.trim() || !athlete.trim()) {
       return;
     }
 
-    if (!editingHighlight && !form.mediaFile) {
-      setFileError("Media file is required.");
+    if (media.length === 0) {
+      setFileError("At least one image or video is required.");
       return;
     }
 
-    if (
-      editingHighlight &&
-      form.media_type !== editingHighlight.media_type &&
-      !form.mediaFile
-    ) {
-      setFileError(
-        `Please upload a new ${
-          form.media_type === "image" ? "image" : "video"
-        }.`,
-      );
+    const values: HighlightFormValues = {
+      title: title.trim(),
+      athlete: athlete.trim(),
 
-      return;
-    }
+      media: media.map((item, index) => ({
+        id: item.id,
+        media_type: item.media_type,
+        mediaFile: item.mediaFile,
+        media_url: item.media_url,
+        media_public_id: item.media_public_id,
+        thumbnailFile: item.thumbnailFile,
+        thumbnail_url: item.thumbnail_url,
+        thumbnail_public_id: item.thumbnail_public_id,
+        sort_order: index,
+      })),
+    };
 
-    onSubmit(form);
+    onSubmit(values);
   };
-
-  const isEditing = editingHighlight !== null;
-
-  const mediaAccept =
-    form.media_type === "image"
-      ? "image/jpeg,image/png,image/webp"
-      : "video/mp4,video/webm,video/quicktime";
-
-  const isSubmitDisabled =
-    isSubmitting ||
-    !form.title.trim() ||
-    !form.athlete.trim() ||
-    (!editingHighlight && !form.mediaFile) ||
-    (editingHighlight !== null &&
-      form.media_type !== editingHighlight.media_type &&
-      !form.mediaFile);
 
   const handleClose = () => {
-    if (!isSubmitting) {
-      onClose();
-    }
+    if (isSubmitting) return;
+
+    setMedia((current) => {
+      revokeObjectUrls(current);
+      return [];
+    });
+
+    onClose();
   };
+
+  const isSubmitDisabled =
+    isSubmitting || !title.trim() || !athlete.trim() || media.length === 0;
 
   return (
     <AnimatePresence>
@@ -387,11 +372,11 @@ const HighlightFormModal = ({
             transition={{ duration: 0.25 }}
             onClick={(e) => e.stopPropagation()}
             onSubmit={handleSubmit}
-            className="my-auto flex w-full max-w-lg max-h-[90vh] flex-col border border-white/10 bg-black"
+            className="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col border border-white/10 bg-black"
           >
             <div className="flex items-center justify-between border-b border-white/5 px-4 py-4 sm:px-6">
               <h2 className="font-montserrat text-sm font-bold tracking-[2px] text-white">
-                {isEditing ? "EDIT HIGHLIGHT" : "ADD HIGHLIGHT"}
+                {editingHighlight ? "EDIT HIGHLIGHT" : "ADD HIGHLIGHT"}
               </h2>
 
               <button
@@ -399,13 +384,13 @@ const HighlightFormModal = ({
                 onClick={handleClose}
                 disabled={isSubmitting}
                 aria-label="Close"
-                className="w-8 h-8 flex items-center justify-center text-descText hover:text-white transition disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center text-descText transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <FaTimes size={14} />
               </button>
             </div>
 
-            <div className="custom-scroll flex flex-col gap-5 px-6 py-5 overflow-y-auto">
+            <div className="custom-scroll flex flex-col gap-5 overflow-y-auto px-4 py-5 sm:px-6">
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   TITLE
@@ -414,16 +399,11 @@ const HighlightFormModal = ({
                 <input
                   type="text"
                   required
-                  value={form.title}
+                  value={title}
                   disabled={isSubmitting}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      title: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setTitle(e.target.value)}
                   placeholder="Highlight title"
-                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition disabled:opacity-50"
+                  className="w-full border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white outline-none transition placeholder:text-descText2 focus:border-floesky/40 disabled:opacity-50"
                 />
               </div>
 
@@ -435,272 +415,123 @@ const HighlightFormModal = ({
                 <input
                   type="text"
                   required
-                  value={form.athlete}
+                  value={athlete}
                   disabled={isSubmitting}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      athlete: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setAthlete(e.target.value)}
                   placeholder="Athlete name"
-                  className="w-full bg-white/2 border border-borderColor px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 outline-none focus:border-floesky/40 transition disabled:opacity-50"
+                  className="w-full border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white outline-none transition placeholder:text-descText2 focus:border-floesky/40 disabled:opacity-50"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="font-montserrat text-[11px] tracking-wider text-descText">
-                  MEDIA TYPE
-                </label>
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <p className="font-montserrat text-[11px] tracking-wider text-descText">
+                    MEDIA
+                  </p>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => handleMediaTypeChange("image")}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      form.media_type === "image"
-                        ? "border-floesky/50 bg-floesky/10 text-floesky"
-                        : "border-borderColor text-descText2 hover:text-floesky hover:border-floesky"
-                    }`}
-                  >
-                    <FaImage size={13} />
-                    IMAGE
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => handleMediaTypeChange("video")}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border font-montserrat text-xs tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      form.media_type === "video"
-                        ? "border-floesky/50 bg-floesky/10 text-floesky"
-                        : "border-borderColor text-descText2 hover:text-floesky hover:border-floesky"
-                    }`}
-                  >
-                    <FaVideo size={13} />
-                    VIDEO
-                  </button>
+                  <p className="mt-1 font-montserrat text-[10px] text-descText2">
+                    Add multiple images and videos. Drag the grip to reorder.
+                  </p>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="font-montserrat text-[11px] tracking-wider text-descText">
-                  {isEditing
-                    ? form.media_type === editingHighlight?.media_type
-                      ? `REPLACE ${
-                          form.media_type === "image" ? "IMAGE" : "VIDEO"
-                        } (OPTIONAL)`
-                      : `UPLOAD ${
-                          form.media_type === "image" ? "IMAGE" : "VIDEO"
-                        }`
-                    : form.media_type === "image"
-                      ? "IMAGE"
-                      : "VIDEO"}
-                </label>
-
-                <input
-                  ref={mediaInputRef}
-                  type="file"
-                  accept={mediaAccept}
-                  disabled={isSubmitting}
-                  onChange={handleMediaInputChange}
-                  className="hidden"
-                />
-
-                {mediaPreview ? (
-                  <div className="relative w-full aspect-video overflow-hidden border border-borderColor bg-white/5 group">
-                    {form.media_type === "image" ? (
-                      <img
-                        src={mediaPreview}
-                        alt="Media preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <video
-                        src={mediaPreview}
-                        controls
-                        className="w-full h-full object-contain bg-black"
-                      />
-                    )}
-
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => mediaInputRef.current?.click()}
-                        className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <FaCloudUploadAlt size={12} />
-                        CHANGE
-                      </button>
-
-                      {mediaPreview.startsWith("blob:") && (
-                        <button
-                          type="button"
-                          disabled={isSubmitting}
-                          onClick={removeMedia}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <FaTrash size={11} />
-                          REMOVE
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => {
-                      if (!isSubmitting) {
-                        mediaInputRef.current?.click();
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-
-                      if (!isSubmitting) {
-                        setIsMediaDragging(true);
-                      }
-                    }}
-                    onDragLeave={() => setIsMediaDragging(false)}
-                    onDrop={handleMediaDrop}
-                    className={`w-full aspect-video rounded-sm border border-dashed flex flex-col items-center justify-center gap-3 transition ${
-                      isSubmitting
-                        ? "cursor-not-allowed opacity-50"
-                        : "cursor-pointer"
-                    } ${
-                      isMediaDragging
-                        ? "border-floesky bg-floesky/5"
-                        : "border-borderColor bg-white/2 hover:border-floesky"
-                    }`}
-                  >
-                    <div className="w-10 h-10 flex items-center rounded-full justify-center bg-white/5 text-descText">
-                      {form.media_type === "image" ? (
-                        <FaImage size={17} />
-                      ) : (
-                        <FaVideo size={17} />
-                      )}
-                    </div>
-
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="font-montserrat text-xs text-descText">
-                        Click to upload or drag & drop
-                      </span>
-
-                      <span className="font-montserrat text-[10px] text-descText2">
-                        {form.media_type === "image"
-                          ? "PNG, JPG, WEBP • MAX 5MB"
-                          : "MP4, WEBM, MOV • MAX 50MB"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {form.media_type === "video" && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-montserrat text-[11px] tracking-wider text-descText2">
-                    VIDEO THUMBNAIL (OPTIONAL)
-                  </label>
-
+                <div className="flex gap-2">
                   <input
-                    ref={thumbnailInputRef}
+                    ref={imageInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
+                    multiple
                     disabled={isSubmitting}
-                    onChange={handleThumbnailInputChange}
+                    onChange={(e) => addMediaFiles(e.target.files, "image")}
                     className="hidden"
                   />
 
-                  {thumbnailPreview ? (
-                    <div className="relative w-full aspect-video overflow-hidden border border-borderColor bg-white/5 group">
-                      <img
-                        src={thumbnailPreview}
-                        alt="Video thumbnail preview"
-                        className="w-full h-full object-cover"
-                      />
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    multiple
+                    disabled={isSubmitting}
+                    onChange={(e) => addMediaFiles(e.target.files, "video")}
+                    className="hidden"
+                  />
 
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                        <button
-                          type="button"
-                          disabled={isSubmitting}
-                          onClick={() => thumbnailInputRef.current?.click()}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-white/20 transition disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <FaCloudUploadAlt size={12} />
-                          CHANGE
-                        </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => imageInputRef.current?.click()}
+                    className="flex flex-1 items-center justify-center gap-2 border border-borderColor px-3 py-2 font-montserrat text-[10px] font-bold tracking-wider text-white transition hover:border-floesky hover:text-floesky disabled:opacity-40 sm:flex-none"
+                  >
+                    <FaImage size={11} />
+                    ADD IMAGE
+                  </button>
 
-                        <button
-                          type="button"
-                          disabled={isSubmitting}
-                          onClick={removeThumbnail}
-                          className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-montserrat text-[10px] tracking-wider px-3 py-2 hover:bg-red-500/60 transition disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <FaTrash size={11} />
-                          REMOVE
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => {
-                        if (!isSubmitting) {
-                          thumbnailInputRef.current?.click();
-                        }
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-
-                        if (!isSubmitting) {
-                          setIsThumbnailDragging(true);
-                        }
-                      }}
-                      onDragLeave={() => setIsThumbnailDragging(false)}
-                      onDrop={handleThumbnailDrop}
-                      className={`w-full aspect-video rounded-sm border border-dashed flex flex-col items-center justify-center gap-3 transition ${
-                        isSubmitting
-                          ? "cursor-not-allowed opacity-50"
-                          : "cursor-pointer"
-                      } ${
-                        isThumbnailDragging
-                          ? "border-floesky bg-floesky/5"
-                          : "border-white/10 bg-white/2 hover:border-floesky"
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-descText">
-                        <FaImage size={17} />
-                      </div>
-
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="font-montserrat text-xs text-descText">
-                          Upload video thumbnail
-                        </span>
-
-                        <span className="font-montserrat text-[10px] text-descText2">
-                          PNG, JPG, WEBP • MAX 5MB
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => videoInputRef.current?.click()}
+                    className="flex flex-1 items-center justify-center gap-2 border border-borderColor px-3 py-2 font-montserrat text-[10px] font-bold tracking-wider text-white transition hover:border-floesky hover:text-floesky disabled:opacity-40 sm:flex-none"
+                  >
+                    <FaVideo size={11} />
+                    ADD VIDEO
+                  </button>
                 </div>
+              </div>
+
+              {media.length === 0 ? (
+                <div
+                  onClick={() =>
+                    !isSubmitting && imageInputRef.current?.click()
+                  }
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+
+                    if (isSubmitting) return;
+
+                    handleDrop(e.dataTransfer.files);
+                  }}
+                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-borderColor bg-white/2 px-4 text-center transition hover:border-floesky/40"
+                >
+                  <FaCloudUploadAlt size={24} className="text-descText2" />
+
+                  <p className="font-montserrat text-xs text-descText2">
+                    Click or drag images and videos here
+                  </p>
+                </div>
+              ) : (
+                <Reorder.Group
+                  axis="y"
+                  values={media}
+                  onReorder={handleReorder}
+                  className="flex flex-col gap-3"
+                >
+                  {media.map((item, index) => (
+                    <ReorderableMediaItem
+                      key={item.key}
+                      item={item}
+                      index={index}
+                      isSubmitting={isSubmitting}
+                      onRemove={removeMedia}
+                      onRemoveThumbnail={removeThumbnail}
+                      onAddThumbnail={addThumbnail}
+                    />
+                  ))}
+                </Reorder.Group>
+              )}
+
+              {(fileError || error) && (
+                <p className="font-montserrat text-xs text-red-400">
+                  {fileError || error}
+                </p>
               )}
             </div>
 
-            {(fileError || error) && (
-              <div className="mx-4 mb-4 border border-red-500/20 bg-red-500/10 px-4 py-3 sm:mx-6">
-                <p className="font-montserrat text-[11px] leading-relaxed text-red-400">
-                  {fileError || error}
-                </p>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-1.5 border-t border-white/5 px-4 py-4 sm:gap-3 sm:px-6">
+            <div className="flex items-center justify-end gap-3 border-t border-white/5 px-4 py-4 sm:px-6">
               <button
                 type="button"
-                onClick={handleClose}
                 disabled={isSubmitting}
-                className="font-montserrat text-xs tracking-wider text-white/40 hover:text-white px-4 py-2.5 transition disabled:cursor-not-allowed disabled:opacity-30"
+                onClick={handleClose}
+                className="px-4 py-2.5 font-montserrat text-xs font-bold tracking-wider text-descText transition hover:text-white disabled:opacity-40"
               >
                 CANCEL
               </button>
@@ -708,19 +539,13 @@ const HighlightFormModal = ({
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
-                className="flex items-center justify-center gap-2 bg-floesky text-black font-montserrat font-bold text-xs px-5 py-2.5 tracking-wider rounded-sm hover:opacity-90 transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-w-28 items-center justify-center gap-2 bg-floesky px-4 py-2.5 font-montserrat text-xs font-bold tracking-wider text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isSubmitting && (
-                  <FaSpinner size={12} className="animate-spin" />
+                  <FaSpinner size={11} className="animate-spin" />
                 )}
 
-                {isSubmitting
-                  ? isEditing
-                    ? "SAVING..."
-                    : "ADDING..."
-                  : isEditing
-                    ? "SAVE CHANGES"
-                    : "ADD HIGHLIGHT"}
+                {editingHighlight ? "SAVE CHANGES" : "ADD HIGHLIGHT"}
               </button>
             </div>
           </motion.form>

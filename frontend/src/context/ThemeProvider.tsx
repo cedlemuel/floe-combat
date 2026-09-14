@@ -5,8 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
-type Theme = "light" | "dark";
+import type { Theme } from "../types/types";
 
 type ThemeContextType = {
   theme: Theme;

@@ -24,8 +24,6 @@ const Highlights = () => {
     setCurrentPage,
   } = usePagination(highlights, { pageSize: itemsPerPage });
 
-  const emptySlots = itemsPerPage - currentHighlights.length;
-
   useEffect(() => {
     const fetchHighlights = async () => {
       try {
@@ -48,18 +46,6 @@ const Highlights = () => {
 
     fetchHighlights();
   }, []);
-
-  const handleClose = () => {
-    setSelected(null);
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
-    };
-    if (selected) window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selected]);
 
   return (
     <main className="min-h-screen bg-black">
@@ -111,66 +97,64 @@ const Highlights = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full">
-                  {currentHighlights.map((item, i) => (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.1 * i }}
-                      onClick={() => setSelected(item)}
-                      className="group relative aspect-video bg-white/5 border border-borderColor overflow-hidden cursor-pointer"
-                    >
-                      {item.media_type === "video" ? (
-                        item.thumbnail_url ? (
+                  {currentHighlights.map((item, i) => {
+                    const primaryMedia = item.media[0];
+
+                    if (!primaryMedia) return null;
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 * i }}
+                        onClick={() => setSelected(item)}
+                        className="group relative aspect-video bg-white/5 border border-borderColor overflow-hidden cursor-pointer"
+                      >
+                        {primaryMedia.media_type === "video" ? (
+                          primaryMedia.thumbnail_url ? (
+                            <img
+                              src={primaryMedia.thumbnail_url}
+                              alt={item.title}
+                              className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <video
+                              src={primaryMedia.media_url}
+                              className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                          )
+                        ) : (
                           <img
-                            src={item.thumbnail_url}
+                            src={primaryMedia.media_url}
                             alt={item.title}
                             className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
                           />
-                        ) : (
-                          <video
-                            src={item.media_url}
-                            className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                            muted
-                            playsInline
-                            preload="metadata"
-                          />
-                        )
-                      ) : (
-                        <img
-                          src={item.media_url}
-                          alt={item.title}
-                          className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                        />
-                      )}
-
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                        {item.media_type === "video" ? (
-                          <FaPlay className="w-8 h-8 sm:w-10 sm:h-10 text-descText drop-shadow-lg" />
-                        ) : (
-                          <FaExpand className="w-8 h-8 sm:w-10 sm:h-10 text-descText drop-shadow-lg" />
                         )}
-                      </div>
 
-                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-linear-to-t from-black/80 to-transparent">
-                        <h3 className="font-archivo text-base sm:text-lg font-bold tracking-tight">
-                          {item.title}
-                        </h3>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
+                          {primaryMedia.media_type === "video" ? (
+                            <FaPlay className="w-8 h-8 sm:w-10 sm:h-10 text-descText drop-shadow-lg" />
+                          ) : (
+                            <FaExpand className="w-8 h-8 sm:w-10 sm:h-10 text-descText drop-shadow-lg" />
+                          )}
+                        </div>
 
-                        <p className="text-white/60 font-montserrat text-xs tracking-widest">
-                          {item.athlete.toUpperCase()}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-linear-to-t from-black/80 to-transparent">
+                          <h3 className="font-archivo text-base sm:text-lg font-bold tracking-tight">
+                            {item.title}
+                          </h3>
 
-                  {Array.from({ length: emptySlots }, (_, index) => (
-                    <div
-                      key={`empty-${index}`}
-                      className="invisible aspect-video"
-                      aria-hidden="true"
-                    />
-                  ))}
+                          <p className="text-white/60 font-montserrat text-xs tracking-widest">
+                            {item.athlete.toUpperCase()}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
 
                 {totalPages > 1 && (

@@ -17,6 +17,8 @@ import { createAdminActivity } from "../service/adminActivity.service.js";
 
 import { getHighlightVideoThumbnail } from "../utils/helper.js";
 
+import type { HighlightMediaInput } from "../types/highlightInput.js";
+
 const isNonEmptyString = (value: unknown): value is string => {
   return typeof value === "string" && value.trim().length > 0;
 };
@@ -34,6 +36,170 @@ const isHighlightMediaPublicId = (value: string) => {
 
 const isHighlightThumbnailPublicId = (value: string) => {
   return value.startsWith("floe-combat/highlights/thumbnails/");
+};
+
+type ParseMediaResult =
+  | {
+      success: true;
+      media: HighlightMediaInput[];
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
+const parseHighlightMedia = (value: unknown): ParseMediaResult => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return {
+      success: false,
+      message: "At least one highlight media item is required.",
+    };
+  }
+
+  const parsedMedia: HighlightMediaInput[] = [];
+
+  const mediaPublicIds = new Set<string>();
+  const thumbnailPublicIds = new Set<string>();
+
+  for (const [index, item] of value.entries()) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return {
+        success: false,
+        message: `Invalid media item at position ${index + 1}.`,
+      };
+    }
+
+    const {
+      media_type,
+      media_url,
+      media_public_id,
+      thumbnail_url,
+      thumbnail_public_id,
+      sort_order,
+    } = item as Record<string, unknown>;
+
+    if (!isValidMediaType(media_type)) {
+      return {
+        success: false,
+        message: `Invalid media type at position ${index + 1}.`,
+      };
+    }
+
+    if (
+      !isNonEmptyString(media_url) ||
+      !isNonEmptyString(media_public_id) ||
+      !isHighlightMediaPublicId(media_public_id)
+    ) {
+      return {
+        success: false,
+        message: `Invalid highlight media at position ${index + 1}.`,
+      };
+    }
+
+    const mediaPublicId = media_public_id.trim();
+
+    if (mediaPublicIds.has(mediaPublicId)) {
+      return {
+        success: false,
+        message: "Duplicate highlight media is not allowed.",
+      };
+    }
+
+    mediaPublicIds.add(mediaPublicId);
+
+    const hasThumbnailUrl =
+      thumbnail_url !== undefined && thumbnail_url !== null;
+
+    const hasThumbnailPublicId =
+      thumbnail_public_id !== undefined && thumbnail_public_id !== null;
+
+    if (hasThumbnailUrl !== hasThumbnailPublicId) {
+      return {
+        success: false,
+        message: "Thumbnail URL and public ID must be provided together.",
+      };
+    }
+
+    let finalThumbnailUrl: string | null = null;
+    let finalThumbnailPublicId: string | null = null;
+
+    if (media_type === "image") {
+      if (hasThumbnailUrl || hasThumbnailPublicId) {
+        return {
+          success: false,
+          message: "Image media cannot have a video thumbnail.",
+        };
+      }
+    }
+
+    if (media_type === "video" && hasThumbnailUrl && hasThumbnailPublicId) {
+      if (
+        !isNonEmptyString(thumbnail_url) ||
+        !isNonEmptyString(thumbnail_public_id) ||
+        !isHighlightThumbnailPublicId(thumbnail_public_id)
+      ) {
+        return {
+          success: false,
+          message: `Invalid thumbnail at position ${index + 1}.`,
+        };
+      }
+
+      const thumbnailPublicId = thumbnail_public_id.trim();
+
+      if (thumbnailPublicIds.has(thumbnailPublicId)) {
+        return {
+          success: false,
+          message: "Duplicate highlight thumbnail is not allowed.",
+        };
+      }
+
+      thumbnailPublicIds.add(thumbnailPublicId);
+
+      finalThumbnailUrl = thumbnail_url.trim();
+      finalThumbnailPublicId = thumbnailPublicId;
+    } else if (media_type === "video") {
+      finalThumbnailUrl = getHighlightVideoThumbnail(mediaPublicId);
+    }
+
+    const sortOrder =
+      typeof sort_order === "number" &&
+      Number.isSafeInteger(sort_order) &&
+      sort_order >= 0
+        ? sort_order
+        : index;
+
+    parsedMedia.push({
+      mediaType: media_type,
+      mediaUrl: media_url.trim(),
+      mediaPublicId,
+      thumbnailUrl: finalThumbnailUrl,
+      thumbnailPublicId: finalThumbnailPublicId,
+      sortOrder,
+    });
+  }
+
+  return {
+    success: true,
+    media: parsedMedia,
+  };
+};
+
+const cleanupMedia = async (media: HighlightMediaInput[]) => {
+  for (const item of media) {
+    try {
+      await deleteHighlightMedia(item.mediaPublicId, item.mediaType);
+    } catch (error) {
+      console.error("Failed to cleanup highlight media:", error);
+    }
+
+    if (item.thumbnailPublicId) {
+      try {
+        await deleteHighlightThumbnail(item.thumbnailPublicId);
+      } catch (error) {
+        console.error("Failed to cleanup highlight thumbnail:", error);
+      }
+    }
+  }
 };
 
 const getHighlightsController = async (_req: Request, res: Response) => {
@@ -95,15 +261,7 @@ const getHighlightController = async (req: Request, res: Response) => {
 };
 
 const createHighlightController = async (req: Request, res: Response) => {
-  const {
-    title,
-    athlete,
-    media_type,
-    media_url,
-    media_public_id,
-    thumbnail_url,
-    thumbnail_public_id,
-  } = req.body as Record<string, unknown>;
+  const { title, athlete, media } = req.body as Record<string, unknown>;
 
   if (!isNonEmptyString(title) || !isNonEmptyString(athlete)) {
     res.status(400).json({
@@ -114,93 +272,22 @@ const createHighlightController = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!isValidMediaType(media_type)) {
+  const parsedMedia = parseHighlightMedia(media);
+
+  if (!parsedMedia.success) {
     res.status(400).json({
       success: false,
-      message: "Invalid media type.",
+      message: parsedMedia.message,
     });
 
     return;
   }
-
-  if (
-    !isNonEmptyString(media_url) ||
-    !isNonEmptyString(media_public_id) ||
-    !isHighlightMediaPublicId(media_public_id)
-  ) {
-    res.status(400).json({
-      success: false,
-      message: "Invalid highlight media.",
-    });
-
-    return;
-  }
-
-  const hasThumbnailUrl = thumbnail_url !== undefined && thumbnail_url !== null;
-
-  const hasThumbnailPublicId =
-    thumbnail_public_id !== undefined && thumbnail_public_id !== null;
-
-  if (hasThumbnailUrl !== hasThumbnailPublicId) {
-    res.status(400).json({
-      success: false,
-      message: "Thumbnail URL and public ID must be provided together.",
-    });
-
-    return;
-  }
-
-  let customThumbnailUrl: string | null = null;
-
-  let customThumbnailPublicId: string | null = null;
-
-  if (hasThumbnailUrl && hasThumbnailPublicId) {
-    if (
-      !isNonEmptyString(thumbnail_url) ||
-      !isNonEmptyString(thumbnail_public_id) ||
-      !isHighlightThumbnailPublicId(thumbnail_public_id)
-    ) {
-      res.status(400).json({
-        success: false,
-        message: "Invalid thumbnail.",
-      });
-
-      return;
-    }
-
-    customThumbnailUrl = thumbnail_url.trim();
-
-    customThumbnailPublicId = thumbnail_public_id.trim();
-  }
-
-  if (media_type === "image" && customThumbnailPublicId) {
-    res.status(400).json({
-      success: false,
-      message: "Image highlights cannot have a video thumbnail.",
-    });
-
-    return;
-  }
-
-  const mediaPublicId = media_public_id.trim();
-
-  const finalThumbnailUrl =
-    media_type === "video"
-      ? (customThumbnailUrl ?? getHighlightVideoThumbnail(mediaPublicId))
-      : null;
-
-  const finalThumbnailPublicId =
-    media_type === "video" ? customThumbnailPublicId : null;
 
   try {
     const highlight = await createHighlight({
       title: title.trim(),
       athlete: athlete.trim(),
-      mediaType: media_type,
-      mediaUrl: media_url.trim(),
-      mediaPublicId,
-      thumbnailUrl: finalThumbnailUrl,
-      thumbnailPublicId: finalThumbnailPublicId,
+      media: parsedMedia.media,
     });
 
     try {
@@ -222,19 +309,7 @@ const createHighlightController = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
 
-    try {
-      await deleteHighlightMedia(mediaPublicId, media_type);
-    } catch (cleanupError) {
-      console.error("Failed to cleanup new highlight media:", cleanupError);
-    }
-
-    if (customThumbnailPublicId) {
-      try {
-        await deleteHighlightThumbnail(customThumbnailPublicId);
-      } catch (cleanupError) {
-        console.error("Failed to cleanup new thumbnail:", cleanupError);
-      }
-    }
+    await cleanupMedia(parsedMedia.media);
 
     res.status(500).json({
       success: false,
@@ -255,16 +330,7 @@ const updateHighlightController = async (req: Request, res: Response) => {
     return;
   }
 
-  const {
-    title,
-    athlete,
-    media_type,
-    media_url,
-    media_public_id,
-    thumbnail_url,
-    thumbnail_public_id,
-    thumbnail_removed,
-  } = req.body as Record<string, unknown>;
+  const { title, athlete, media } = req.body as Record<string, unknown>;
 
   if (!isNonEmptyString(title) || !isNonEmptyString(athlete)) {
     res.status(400).json({
@@ -275,71 +341,16 @@ const updateHighlightController = async (req: Request, res: Response) => {
     return;
   }
 
-  if (
-    thumbnail_removed !== undefined &&
-    typeof thumbnail_removed !== "boolean"
-  ) {
+  const parsedMedia = parseHighlightMedia(media);
+
+  if (!parsedMedia.success) {
     res.status(400).json({
       success: false,
-      message: "thumbnail_removed must be a boolean.",
+      message: parsedMedia.message,
     });
 
     return;
   }
-
-  const mediaProvided =
-    media_type !== undefined ||
-    media_url !== undefined ||
-    media_public_id !== undefined;
-
-  if (mediaProvided) {
-    if (
-      !isValidMediaType(media_type) ||
-      !isNonEmptyString(media_url) ||
-      !isNonEmptyString(media_public_id) ||
-      !isHighlightMediaPublicId(media_public_id)
-    ) {
-      res.status(400).json({
-        success: false,
-        message: "Media type, URL, and public ID must be provided together.",
-      });
-
-      return;
-    }
-  }
-
-  const thumbnailProvided =
-    thumbnail_url !== undefined || thumbnail_public_id !== undefined;
-
-  if (thumbnailProvided) {
-    if (
-      !isNonEmptyString(thumbnail_url) ||
-      !isNonEmptyString(thumbnail_public_id) ||
-      !isHighlightThumbnailPublicId(thumbnail_public_id)
-    ) {
-      res.status(400).json({
-        success: false,
-        message: "Thumbnail URL and public ID must be provided together.",
-      });
-
-      return;
-    }
-  }
-
-  if (thumbnailProvided && thumbnail_removed === true) {
-    res.status(400).json({
-      success: false,
-      message: "A thumbnail cannot be uploaded and removed at the same time.",
-    });
-
-    return;
-  }
-
-  let newMediaPublicId: string | null = null;
-
-  let newMediaType: "image" | "video" | null = null;
-
-  let newThumbnailPublicId: string | null = null;
 
   try {
     const existingHighlight = await getHighlightById(id);
@@ -353,88 +364,105 @@ const updateHighlightController = async (req: Request, res: Response) => {
       return;
     }
 
-    let finalMediaType = existingHighlight.media_type;
+    const existingMediaPublicIds = new Set(
+      existingHighlight.media.map((item) => item.media_public_id),
+    );
 
-    let finalMediaUrl = existingHighlight.media_url;
+    const existingThumbnailPublicIds = new Set(
+      existingHighlight.media
+        .map((item) => item.thumbnail_public_id)
+        .filter((id): id is string => id !== null),
+    );
 
-    let finalMediaPublicId = existingHighlight.media_public_id;
+    const newMedia = parsedMedia.media.filter(
+      (item) => !existingMediaPublicIds.has(item.mediaPublicId),
+    );
 
-    if (mediaProvided) {
-      finalMediaType = media_type as "image" | "video";
+    const newThumbnails = parsedMedia.media.filter(
+      (item) =>
+        item.thumbnailPublicId !== null &&
+        !existingThumbnailPublicIds.has(item.thumbnailPublicId),
+    );
 
-      finalMediaUrl = (media_url as string).trim();
+    let updatedHighlight;
 
-      finalMediaPublicId = (media_public_id as string).trim();
+    try {
+      updatedHighlight = await updateHighlight(id, {
+        title: title.trim(),
+        athlete: athlete.trim(),
+        media: parsedMedia.media,
+      });
+    } catch (error) {
+      for (const item of newMedia) {
+        try {
+          await deleteHighlightMedia(item.mediaPublicId, item.mediaType);
+        } catch (cleanupError) {
+          console.error(
+            "Failed to cleanup newly uploaded highlight media:",
+            cleanupError,
+          );
+        }
+      }
 
-      newMediaType = finalMediaType;
-      newMediaPublicId = finalMediaPublicId;
+      for (const item of newThumbnails) {
+        if (!item.thumbnailPublicId) continue;
+
+        try {
+          await deleteHighlightThumbnail(item.thumbnailPublicId);
+        } catch (cleanupError) {
+          console.error(
+            "Failed to cleanup newly uploaded highlight thumbnail:",
+            cleanupError,
+          );
+        }
+      }
+
+      throw error;
     }
-
-    let finalThumbnailUrl = existingHighlight.thumbnail_url;
-
-    let finalThumbnailPublicId = existingHighlight.thumbnail_public_id;
-
-    if (finalMediaType === "image") {
-      finalThumbnailUrl = null;
-      finalThumbnailPublicId = null;
-    } else if (thumbnailProvided) {
-      finalThumbnailUrl = (thumbnail_url as string).trim();
-
-      finalThumbnailPublicId = (thumbnail_public_id as string).trim();
-
-      newThumbnailPublicId = finalThumbnailPublicId;
-    } else if (thumbnail_removed === true) {
-      finalThumbnailUrl = getHighlightVideoThumbnail(finalMediaPublicId);
-
-      finalThumbnailPublicId = null;
-    } else if (
-      mediaProvided &&
-      existingHighlight.thumbnail_public_id === null
-    ) {
-      finalThumbnailUrl = getHighlightVideoThumbnail(finalMediaPublicId);
-
-      finalThumbnailPublicId = null;
-    }
-
-    const updatedHighlight = await updateHighlight(id, {
-      title: title.trim(),
-      athlete: athlete.trim(),
-      mediaType: finalMediaType,
-      mediaUrl: finalMediaUrl,
-      mediaPublicId: finalMediaPublicId,
-      thumbnailUrl: finalThumbnailUrl,
-      thumbnailPublicId: finalThumbnailPublicId,
-    });
 
     if (!updatedHighlight) {
-      throw new Error("Highlight was not returned after update.");
+      res.status(404).json({
+        success: false,
+        message: "Highlight not found.",
+      });
+
+      return;
     }
 
-    if (
-      mediaProvided &&
-      existingHighlight.media_public_id !== finalMediaPublicId
-    ) {
-      try {
-        await deleteHighlightMedia(
-          existingHighlight.media_public_id,
-          existingHighlight.media_type,
-        );
-      } catch (cleanupError) {
-        console.error("Failed to delete old highlight media:", cleanupError);
+    const finalMediaPublicIds = new Set(
+      updatedHighlight.media.map((item) => item.media_public_id),
+    );
+
+    const finalThumbnailPublicIds = new Set(
+      updatedHighlight.media
+        .map((item) => item.thumbnail_public_id)
+        .filter((id): id is string => id !== null),
+    );
+
+    for (const oldMedia of existingHighlight.media) {
+      if (!finalMediaPublicIds.has(oldMedia.media_public_id)) {
+        try {
+          await deleteHighlightMedia(
+            oldMedia.media_public_id,
+            oldMedia.media_type,
+          );
+        } catch (cleanupError) {
+          console.error("Failed to delete old highlight media:", cleanupError);
+        }
       }
-    }
 
-    if (
-      existingHighlight.thumbnail_public_id &&
-      existingHighlight.thumbnail_public_id !== finalThumbnailPublicId
-    ) {
-      try {
-        await deleteHighlightThumbnail(existingHighlight.thumbnail_public_id);
-      } catch (cleanupError) {
-        console.error(
-          "Failed to delete old highlight thumbnail:",
-          cleanupError,
-        );
+      if (
+        oldMedia.thumbnail_public_id &&
+        !finalThumbnailPublicIds.has(oldMedia.thumbnail_public_id)
+      ) {
+        try {
+          await deleteHighlightThumbnail(oldMedia.thumbnail_public_id);
+        } catch (cleanupError) {
+          console.error(
+            "Failed to delete old highlight thumbnail:",
+            cleanupError,
+          );
+        }
       }
     }
 
@@ -456,25 +484,6 @@ const updateHighlightController = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-
-    if (newMediaPublicId && newMediaType) {
-      try {
-        await deleteHighlightMedia(newMediaPublicId, newMediaType);
-      } catch (cleanupError) {
-        console.error("Failed to cleanup new highlight media:", cleanupError);
-      }
-    }
-
-    if (newThumbnailPublicId) {
-      try {
-        await deleteHighlightThumbnail(newThumbnailPublicId);
-      } catch (cleanupError) {
-        console.error(
-          "Failed to cleanup new highlight thumbnail:",
-          cleanupError,
-        );
-      }
-    }
 
     res.status(500).json({
       success: false,
@@ -507,20 +516,19 @@ const deleteHighlightController = async (req: Request, res: Response) => {
       return;
     }
 
-    try {
-      await deleteHighlightMedia(
-        deletedHighlight.media_public_id,
-        deletedHighlight.media_type,
-      );
-    } catch (cleanupError) {
-      console.error("Failed to delete highlight media:", cleanupError);
-    }
-
-    if (deletedHighlight.thumbnail_public_id) {
+    for (const media of deletedHighlight.media) {
       try {
-        await deleteHighlightThumbnail(deletedHighlight.thumbnail_public_id);
+        await deleteHighlightMedia(media.media_public_id, media.media_type);
       } catch (cleanupError) {
-        console.error("Failed to delete highlight thumbnail:", cleanupError);
+        console.error("Failed to delete highlight media:", cleanupError);
+      }
+
+      if (media.thumbnail_public_id) {
+        try {
+          await deleteHighlightThumbnail(media.thumbnail_public_id);
+        } catch (cleanupError) {
+          console.error("Failed to delete highlight thumbnail:", cleanupError);
+        }
       }
     }
 

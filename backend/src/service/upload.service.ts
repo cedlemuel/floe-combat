@@ -7,21 +7,21 @@ const isCloudinaryAssetReferenced = async (
     is_referenced: boolean;
   }>(
     `
-      SELECT (
-        EXISTS (
-          SELECT 1
-          FROM product_images
-          WHERE image_public_id = $1
-        )
-        OR
-        EXISTS (
-          SELECT 1
-          FROM highlights
-          WHERE media_public_id = $1
-             OR thumbnail_public_id = $1
-        )
-      ) AS is_referenced
-    `,
+    SELECT (
+      EXISTS (
+        SELECT 1
+        FROM product_images
+        WHERE image_public_id = $1
+      )
+      OR
+      EXISTS (
+        SELECT 1
+        FROM highlight_media
+        WHERE media_public_id = $1
+           OR thumbnail_public_id = $1
+      )
+    ) AS is_referenced
+  `,
     [publicId],
   );
 

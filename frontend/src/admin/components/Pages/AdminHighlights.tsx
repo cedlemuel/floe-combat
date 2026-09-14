@@ -1,54 +1,68 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  FaPlus,
-  FaPen,
-  FaTrash,
-  FaSearch,
   FaImage,
-  FaVideo,
+  FaPen,
+  FaPlay,
+  FaPlus,
+  FaSearch,
+  FaTrash,
 } from "react-icons/fa";
-import type { Highlight, UpdateHighlightInput } from "../../../types/types";
+
+import type {
+  CleanupAsset,
+  Highlight,
+  HighlightMediaInput,
+} from "../../../types/types";
+
+import type { HighlightFormValues } from "../../../types/admintypes";
+
 import HighlightFormModal from "../../components/common/HighlightFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
-import HighlightImagePreviewModal from "../../components/common/HighlightImagePreviewModal";
-import VideoPreviewModal from "../../components/common/VideoPreviewModal";
+import HighlightPreviewModal from "../../../Components/common/HighlightPreviewModal";
 import AdminPagination from "../../components/common/AdminPagination";
+
 import usePagination from "../../../hooks/usePagination";
-import type { HighlightFormValues } from "../../../types/admintypes";
+
 import {
-  getHighlights,
   createHighlight,
   deleteHighlight,
+  getHighlights,
   updateHighlight,
 } from "../../../services/highlights.service";
+
 import {
   cleanupCloudinaryAssets,
   uploadToCloudinary,
 } from "../../../services/cloudinary.service";
 
-import type { CleanupAsset } from "../../../types/types";
-
 const AdminHighlights = () => {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
 
   const [search, setSearch] = useState("");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+
   const [editingHighlight, setEditingHighlight] = useState<Highlight | null>(
     null,
   );
 
+  const [error, setError] = useState("");
+
   const [deleteTarget, setDeleteTarget] = useState<Highlight | null>(null);
-  const [previewImage, setPreviewImage] = useState<Highlight | null>(null);
-  const [previewVideo, setPreviewVideo] = useState<Highlight | null>(null);
+
+  const [deleteError, setDeleteError] = useState("");
+
+  const [previewHighlight, setPreviewHighlight] = useState<Highlight | null>(
+    null,
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const filtered = highlights.filter((h) =>
-    h.title.toLowerCase().includes(search.toLowerCase()),
+  const filtered = highlights.filter((highlight) =>
+    highlight.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   const {
@@ -56,23 +70,25 @@ const AdminHighlights = () => {
     totalPages,
     paginatedItems: paginatedHighlights,
     setCurrentPage,
-  } = usePagination(filtered, { pageSize: 8 });
+  } = usePagination(filtered, {
+    pageSize: 8,
+  });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, setCurrentPage]);
 
   useEffect(() => {
     const fetchHighlights = async () => {
       try {
         setIsLoading(true);
-        setError("");
+        setFetchError("");
 
         const data = await getHighlights();
 
         setHighlights(data);
       } catch (error) {
-        setError(
+        setFetchError(
           error instanceof Error
             ? error.message
             : "Could not fetch highlights.",
@@ -112,20 +128,23 @@ const AdminHighlights = () => {
       setIsSaving(true);
       setError("");
 
-      const mediaPurpose =
-        values.media_type === "video" ? "highlight-video" : "highlight-image";
+      const mediaPayload: HighlightMediaInput[] = [];
 
-      if (editingHighlight) {
-        const updateData: UpdateHighlightInput = {
-          title: values.title.trim(),
-          athlete: values.athlete.trim(),
-          thumbnail_removed: values.thumbnailRemoved,
-        };
+      for (const [index, item] of values.media.entries()) {
+        let mediaUrl = item.media_url;
+        let mediaPublicId = item.media_public_id;
 
-        if (values.mediaFile) {
+        let thumbnailUrl = item.thumbnail_url ?? null;
+
+        let thumbnailPublicId = item.thumbnail_public_id ?? null;
+
+        if (item.mediaFile) {
+          const purpose =
+            item.media_type === "video" ? "highlight-video" : "highlight-image";
+
           const uploadedMedia = await uploadToCloudinary(
-            values.mediaFile,
-            mediaPurpose,
+            item.mediaFile,
+            purpose,
           );
 
           uploadedAssets.push({
@@ -133,76 +152,66 @@ const AdminHighlights = () => {
             resourceType: uploadedMedia.resourceType,
           });
 
-          updateData.media_type = values.media_type;
-          updateData.media_url = uploadedMedia.url;
-          updateData.media_public_id = uploadedMedia.publicId;
+          mediaUrl = uploadedMedia.url;
+          mediaPublicId = uploadedMedia.publicId;
         }
 
-        if (values.media_type === "video" && values.thumbnailFile) {
-          const uploadedThumbnail = await uploadToCloudinary(
-            values.thumbnailFile,
-            "highlight-thumbnail",
-          );
-
-          uploadedAssets.push({
-            publicId: uploadedThumbnail.publicId,
-            resourceType: uploadedThumbnail.resourceType,
-          });
-
-          updateData.thumbnail_url = uploadedThumbnail.url;
-          updateData.thumbnail_public_id = uploadedThumbnail.publicId;
-          updateData.thumbnail_removed = false;
+        if (!mediaUrl || !mediaPublicId) {
+          throw new Error(`Media ${index + 1} is missing a file.`);
         }
 
-        const updatedHighlight = await updateHighlight(
-          editingHighlight.id,
-          updateData,
-        );
+        if (item.media_type === "video") {
+          if (item.thumbnailFile) {
+            const uploadedThumbnail = await uploadToCloudinary(
+              item.thumbnailFile,
+              "highlight-thumbnail",
+            );
+
+            uploadedAssets.push({
+              publicId: uploadedThumbnail.publicId,
+              resourceType: uploadedThumbnail.resourceType,
+            });
+
+            thumbnailUrl = uploadedThumbnail.url;
+
+            thumbnailPublicId = uploadedThumbnail.publicId;
+          }
+        } else {
+          thumbnailUrl = null;
+          thumbnailPublicId = null;
+        }
+
+        mediaPayload.push({
+          media_type: item.media_type,
+          media_url: mediaUrl,
+          media_public_id: mediaPublicId,
+          thumbnail_url: thumbnailUrl,
+          thumbnail_public_id: thumbnailPublicId,
+          sort_order: index,
+        });
+      }
+
+      if (editingHighlight) {
+        const updatedHighlight = await updateHighlight(editingHighlight.id, {
+          title: values.title.trim(),
+          athlete: values.athlete.trim(),
+          media: mediaPayload,
+        });
 
         setHighlights((prev) =>
           prev.map((highlight) =>
             highlight.id === updatedHighlight.id ? updatedHighlight : highlight,
           ),
         );
+
+        if (previewHighlight?.id === updatedHighlight.id) {
+          setPreviewHighlight(updatedHighlight);
+        }
       } else {
-        if (!values.mediaFile) {
-          throw new Error("Media file is required.");
-        }
-
-        const uploadedMedia = await uploadToCloudinary(
-          values.mediaFile,
-          mediaPurpose,
-        );
-
-        uploadedAssets.push({
-          publicId: uploadedMedia.publicId,
-          resourceType: uploadedMedia.resourceType,
-        });
-
-        let uploadedThumbnail: Awaited<
-          ReturnType<typeof uploadToCloudinary>
-        > | null = null;
-
-        if (values.media_type === "video" && values.thumbnailFile) {
-          uploadedThumbnail = await uploadToCloudinary(
-            values.thumbnailFile,
-            "highlight-thumbnail",
-          );
-
-          uploadedAssets.push({
-            publicId: uploadedThumbnail.publicId,
-            resourceType: uploadedThumbnail.resourceType,
-          });
-        }
-
         const newHighlight = await createHighlight({
           title: values.title.trim(),
           athlete: values.athlete.trim(),
-          media_type: values.media_type,
-          media_url: uploadedMedia.url,
-          media_public_id: uploadedMedia.publicId,
-          thumbnail_url: uploadedThumbnail?.url ?? null,
-          thumbnail_public_id: uploadedThumbnail?.publicId ?? null,
+          media: mediaPayload,
         });
 
         setHighlights((prev) => [newHighlight, ...prev]);
@@ -229,7 +238,7 @@ const AdminHighlights = () => {
 
     try {
       setIsDeleting(true);
-      setError("");
+      setDeleteError("");
 
       await deleteHighlight(deleteTarget.id);
 
@@ -237,9 +246,13 @@ const AdminHighlights = () => {
         prev.filter((highlight) => highlight.id !== deleteTarget.id),
       );
 
+      if (previewHighlight?.id === deleteTarget.id) {
+        setPreviewHighlight(null);
+      }
+
       setDeleteTarget(null);
     } catch (error) {
-      setError(
+      setDeleteError(
         error instanceof Error ? error.message : "Could not delete highlight.",
       );
     } finally {
@@ -249,8 +262,8 @@ const AdminHighlights = () => {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1">
           <FaSearch
             size={12}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-descText2"
@@ -260,123 +273,182 @@ const AdminHighlights = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search highlights..."
-            className="w-full bg-white/2 border border-borderColor pl-9 pr-3 py-2.5 font-montserrat text-xs text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+            className="w-full border border-borderColor bg-white/2 py-2.5 pl-9 pr-3 font-montserrat text-xs text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
           />
         </div>
 
         <button
+          type="button"
           onClick={openAddForm}
-          className="sm:ml-auto flex items-center justify-center gap-2 bg-floesky text-black font-montserrat font-bold text-xs px-4 py-2.5 tracking-wider rounded-sm hover:opacity-90 transition"
+          className="flex items-center justify-center gap-2 rounded-sm bg-floesky px-4 py-2.5 font-montserrat text-xs font-bold tracking-wider text-black transition hover:opacity-90 sm:ml-auto"
         >
           <FaPlus size={10} />
           ADD HIGHLIGHT
         </button>
       </div>
 
-      <div className="border border-borderColor bg-white/2 overflow-hidden">
-        <div className="hidden sm:grid grid-cols-[64px_1.5fr_120px_1fr_auto] gap-4 px-5 py-3 border-b border-borderColor font-montserrat text-[11px] tracking-[2px] text-descText">
+      {deleteError && (
+        <p className="px-1 font-montserrat text-xs text-red-400">
+          {deleteError}
+        </p>
+      )}
+
+      <div className="overflow-hidden border border-borderColor bg-white/2">
+        <div className="hidden grid-cols-[64px_1.5fr_120px_1fr_auto] gap-4 border-b border-borderColor px-5 py-3 font-montserrat text-[11px] tracking-[2px] text-descText sm:grid">
           <span />
+
           <span>HIGHLIGHT</span>
-          <span>TYPE</span>
+
+          <span>MEDIA</span>
+
           <span>ATHLETE</span>
+
           <span className="text-right">ACTIONS</span>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <p className="font-montserrat text-xs font-bold tracking-widest text-white/30">
-              LOADING HIGHLIGHTS...
-            </p>
-          </div>
-        ) : filtered.length > 0 ? (
           <div className="flex flex-col divide-y divide-white/5">
-            {paginatedHighlights.map((highlight) => (
+            {Array.from({
+              length: 5,
+            }).map((_, index) => (
               <div
-                key={highlight.id}
-                className="grid grid-cols-[64px_1fr_auto] sm:grid-cols-[64px_1.5fr_120px_1fr_auto] gap-4 px-5 py-3 items-center"
+                key={index}
+                className="grid animate-pulse grid-cols-[64px_1fr_auto] items-center gap-4 px-5 py-3 sm:grid-cols-[64px_1.5fr_120px_1fr_auto]"
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    highlight.media_type === "image"
-                      ? setPreviewImage(highlight)
-                      : setPreviewVideo(highlight)
-                  }
-                  className="w-12 h-12 rounded-sm overflow-hidden bg-white/5 shrink-0 hover:ring-2 hover:ring-floesky/60 transition"
-                >
-                  {highlight.media_type === "image" ? (
-                    <img
-                      src={highlight.media_url}
-                      alt={highlight.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : highlight.thumbnail_url ? (
-                    <img
-                      src={highlight.thumbnail_url}
-                      alt={`${highlight.title} thumbnail`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <video
-                      src={highlight.media_url}
-                      className="w-full h-full object-cover"
-                      disablePictureInPicture
-                      muted
-                    />
-                  )}
-                </button>
+                <div className="h-12 w-12 rounded-sm bg-white/5" />
 
-                <div className="min-w-0 flex flex-col gap-0.5">
-                  <span className="font-montserrat text-sm font-bold text-white truncate">
-                    {highlight.title}
-                  </span>
+                <div className="h-3 w-32 rounded-sm bg-white/5" />
 
-                  <span className="font-montserrat text-xs text-descText2 truncate sm:hidden">
-                    {highlight.athlete}
-                  </span>
-                </div>
+                <div className="hidden h-3 w-20 rounded-sm bg-white/5 sm:block" />
 
-                <div className="hidden sm:flex items-center gap-2">
-                  {highlight.media_type === "video" ? (
-                    <FaVideo size={12} className="text-red-400" />
-                  ) : (
-                    <FaImage size={12} className="text-floesky" />
-                  )}
+                <div className="hidden h-3 w-16 rounded-sm bg-white/5 sm:block" />
 
-                  <span className="font-montserrat text-[11px] tracking-wider text-descText2 uppercase">
-                    {highlight.media_type}
-                  </span>
-                </div>
-
-                <span className="hidden sm:inline font-montserrat text-[11px] tracking-wider text-floesky">
-                  {highlight.athlete}
-                </span>
-
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => openEditForm(highlight)}
-                    className="w-8 h-8 flex items-center justify-center rounded-sm text-descText2 hover:text-floesky hover:bg-white/5 transition"
-                  >
-                    <FaPen size={12} />
-                  </button>
-
-                  <button
-                    onClick={() => setDeleteTarget(highlight)}
-                    className="w-8 h-8 flex items-center justify-center rounded-sm text-descText2 hover:text-red-400 hover:bg-white/5 transition"
-                  >
-                    <FaTrash size={12} />
-                  </button>
-                </div>
+                <div className="ml-auto h-3 w-12 rounded-sm bg-white/5" />
               </div>
             ))}
           </div>
+        ) : fetchError ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16">
+            <p className="font-montserrat text-xs text-red-400">{fetchError}</p>
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="flex flex-col divide-y divide-white/5">
+            {paginatedHighlights.map((highlight) => {
+              const primaryMedia = highlight.media[0];
+
+              return (
+                <div
+                  key={highlight.id}
+                  className="grid grid-cols-[64px_1fr_auto] items-center gap-4 px-5 py-3 sm:grid-cols-[64px_1.5fr_120px_1fr_auto]"
+                >
+                  <button
+                    type="button"
+                    disabled={!primaryMedia}
+                    onClick={() => {
+                      if (!primaryMedia) return;
+
+                      setPreviewHighlight(highlight);
+                    }}
+                    aria-label={`Preview ${highlight.title}`}
+                    className="group relative h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-white/5 transition hover:ring-2 hover:ring-floesky/60 disabled:cursor-default"
+                  >
+                    {primaryMedia?.media_type === "image" ? (
+                      <img
+                        src={primaryMedia.media_url}
+                        alt={highlight.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : primaryMedia?.thumbnail_url ? (
+                      <img
+                        src={primaryMedia.thumbnail_url}
+                        alt={`${highlight.title} thumbnail`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : primaryMedia ? (
+                      <video
+                        src={primaryMedia.media_url}
+                        className="h-full w-full object-cover"
+                        disablePictureInPicture
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <FaImage size={12} className="text-descText2" />
+                      </div>
+                    )}
+
+                    {primaryMedia?.media_type === "video" && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                        <FaPlay size={10} className="text-white" />
+                      </div>
+                    )}
+
+                    {highlight.media.length > 1 && (
+                      <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 font-montserrat text-[8px] font-bold text-white">
+                        +{highlight.media.length - 1}
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate font-montserrat text-sm font-bold text-white">
+                      {highlight.title}
+                    </span>
+
+                    <span className="truncate font-montserrat text-xs text-descText2 sm:hidden">
+                      {highlight.athlete}
+                    </span>
+                  </div>
+
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewHighlight(highlight)}
+                      className="w-fit rounded-full border border-borderColor px-2 py-0.5 font-montserrat text-[10px] tracking-wider text-descText2 transition hover:border-floesky/50 hover:text-floesky"
+                    >
+                      {highlight.media.length}{" "}
+                      {highlight.media.length === 1 ? "ITEM" : "ITEMS"}
+                    </button>
+                  </div>
+
+                  <span className="hidden font-montserrat text-[11px] tracking-wider text-floesky sm:inline">
+                    {highlight.athlete}
+                  </span>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(highlight)}
+                      aria-label={`Edit ${highlight.title}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-sm text-descText2 transition hover:bg-white/5 hover:text-floesky"
+                    >
+                      <FaPen size={12} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteError("");
+                        setDeleteTarget(highlight);
+                      }}
+                      aria-label={`Delete ${highlight.title}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-sm text-descText2 transition hover:bg-white/5 hover:text-red-400"
+                    >
+                      <FaTrash size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-16">
-            <span className="text-white/10 font-archivo text-5xl font-bold">
+            <span className="font-archivo text-5xl font-bold text-white/10">
               0
             </span>
 
-            <p className="text-white/25 font-montserrat text-xs font-bold tracking-widest">
+            <p className="font-montserrat text-xs font-bold tracking-widest text-white/25">
               NO HIGHLIGHTS FOUND
             </p>
           </div>
@@ -405,22 +477,16 @@ const AdminHighlights = () => {
         title="DELETE HIGHLIGHT"
         itemName={deleteTarget?.title ?? ""}
         isDeleting={isDeleting}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          setDeleteError("");
+          setDeleteTarget(null);
+        }}
         onConfirm={confirmDelete}
       />
 
-      <HighlightImagePreviewModal
-        isOpen={previewImage !== null}
-        imageUrl={previewImage?.media_url ?? ""}
-        title={previewImage?.title}
-        onClose={() => setPreviewImage(null)}
-      />
-
-      <VideoPreviewModal
-        isOpen={previewVideo !== null}
-        videoUrl={previewVideo?.media_url ?? ""}
-        title={previewVideo?.title}
-        onClose={() => setPreviewVideo(null)}
+      <HighlightPreviewModal
+        selected={previewHighlight}
+        onClose={() => setPreviewHighlight(null)}
       />
     </div>
   );

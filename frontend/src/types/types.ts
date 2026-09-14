@@ -55,15 +55,34 @@ export type UpdateProductInput = {
   deletedImageIds: number[];
 };
 
-export type Highlight = {
+export type HighlightMedia = {
   id: number;
-  title: string;
-  athlete: string;
+  highlight_id: number;
   media_type: "video" | "image";
   media_url: string;
   media_public_id: string;
   thumbnail_url: string | null;
   thumbnail_public_id: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type HighlightMediaInput = {
+  media_type: "image" | "video";
+  media_url: string;
+  media_public_id: string;
+  thumbnail_url: string | null;
+  thumbnail_public_id: string | null;
+  sort_order: number;
+};
+
+export type Highlight = {
+  id: number;
+  title: string;
+  athlete: string;
+  created_at: Date;
+  updated_at: Date;
+  media: HighlightMedia[];
 };
 
 export type HighlightResponse = {
@@ -81,22 +100,13 @@ export type HighlightsResponse = {
 export type CreateHighlightInput = {
   title: string;
   athlete: string;
-  media_type: "image" | "video";
-  media_url: string;
-  media_public_id: string;
-  thumbnail_url: string | null;
-  thumbnail_public_id: string | null;
+  media: HighlightMediaInput[];
 };
 
 export type UpdateHighlightInput = {
   title: string;
   athlete: string;
-  media_type?: "image" | "video";
-  media_url?: string;
-  media_public_id?: string;
-  thumbnail_url?: string;
-  thumbnail_public_id?: string;
-  thumbnail_removed?: boolean;
+  media: HighlightMediaInput[];
 };
 
 export type ReviewStatus = "pending" | "approved" | "rejected";
