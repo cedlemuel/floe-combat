@@ -8,13 +8,22 @@ export type ProductFormValues = {
   deletedImageIds: number[];
 };
 
+export type HighlightMediaFormItem = {
+  id?: number;
+  media_type: "image" | "video";
+  mediaFile: File | null;
+  media_url?: string;
+  media_public_id?: string;
+  thumbnailFile: File | null;
+  thumbnail_url?: string | null;
+  thumbnail_public_id?: string | null;
+  sort_order: number;
+};
+
 export type HighlightFormValues = {
   title: string;
   athlete: string;
-  media_type: "image" | "video";
-  mediaFile: File | null;
-  thumbnailFile: File | null;
-  thumbnailRemoved: boolean;
+  media: HighlightMediaFormItem[];
 };
 
 export type ReviewFormValues = {
@@ -40,4 +49,27 @@ export type AdminLoginResponse = {
 export type AdminLoginInput = {
   email: string;
   password: string;
+};
+
+export type Tab = "hero" | "carousel" | "showcase";
+
+export const tabs: { id: Tab; label: string }[] = [
+  { id: "carousel", label: "CAROUSEL" },
+  { id: "hero", label: "HERO" },
+  { id: "showcase", label: "SHOWCASE" },
+];
+
+export type FormMediaItem = HighlightMediaFormItem & {
+  key: string;
+  previewUrl: string;
+  thumbnailPreviewUrl: string;
+};
+
+export type ReorderableMediaItemProps = {
+  item: FormMediaItem;
+  index: number;
+  isSubmitting: boolean;
+  onRemove: (key: string) => void;
+  onRemoveThumbnail: (key: string) => void;
+  onAddThumbnail: (key: string, file: File | undefined) => void;
 };
