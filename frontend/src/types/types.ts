@@ -170,7 +170,8 @@ export type UploadPurpose =
   | "product-image"
   | "highlight-image"
   | "highlight-video"
-  | "highlight-thumbnail";
+  | "highlight-thumbnail"
+  | "promo-image";
 
 export type UploadSignatureResponse = {
   success: boolean;
@@ -231,3 +232,44 @@ export const categories: CategoryOption[] = [
   { label: "SINGLETS", value: "SINGLETS" },
   { label: "FULL SET", value: "FULL SET" },
 ];
+
+export type PromoSlide = {
+  id: number;
+  image_url: string;
+  image_public_id: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cta_label: string;
+  cta_link: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreatePromoSlideInput = {
+  imageUrl: string;
+  imagePublicId: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  ctaLink: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type UpdatePromoSlideInput = CreatePromoSlideInput;
+
+export type PromoSlidesResponse = {
+  success: boolean;
+  message: string;
+  result: PromoSlide[];
+};
+
+export type PromoSlideResponse = {
+  success: boolean;
+  message: string;
+  result: PromoSlide;
+};

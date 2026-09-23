@@ -3,7 +3,15 @@ import type {
   HighlightFormValues,
   ReviewFormValues,
 } from "./admintypes";
-import type { Product, Highlight, Review, ProductImage, CategoryOption } from "./types";
+import type {
+  Product,
+  Highlight,
+  Review,
+  ProductImage,
+  CategoryOption,
+} from "./types";
+import type { PromotionFormValues } from "./admintypes";
+import type { PromoSlide } from "./types";
 
 export type ProductFormModalProps = {
   isOpen: boolean;
@@ -67,4 +75,13 @@ export type PaginationProps = {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+};
+
+export type PromotionFormModalProps = {
+  isOpen: boolean;
+  editingPromotion: PromoSlide | null;
+  isSubmitting: boolean;
+  error: string;
+  onClose: () => void;
+  onSubmit: (values: PromotionFormValues) => void;
 };

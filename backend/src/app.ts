@@ -8,6 +8,7 @@ import highlightRoutes from "./routes/highlight.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import promotionRoutes from "./routes/promotion.routes.js";
 
 const app = express();
 app.use(helmet());
@@ -45,5 +46,6 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/highlights", highlightRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/promotions", promotionRoutes);
 
 export default app;

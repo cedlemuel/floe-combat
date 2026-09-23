@@ -22,6 +22,7 @@ import AdminDashboard from "./admin/components/Pages/AdminDashboard";
 import NotFound from "./Components/Pages/NotFound";
 import Login from "./Components/Pages/Login";
 import ProtectedRoute from "./admin/components/admin/ProtectedRoute";
+import AdminPromotions from "./admin/components/Pages/AdminPromotions";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -55,6 +56,7 @@ function AppContent() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="highlights" element={<AdminHighlights />} />
             <Route path="reviews" element={<AdminReviews />} />
+            <Route path="promotions" element={<AdminPromotions />} />
           </Route>
         </Route>
 

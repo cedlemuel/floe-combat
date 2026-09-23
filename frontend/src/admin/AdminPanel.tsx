@@ -20,9 +20,9 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
     title: "REVIEWS",
     subtitle: "Manage customer reviews",
   },
-  "/admin/order-steps": {
-    title: "ORDER STEPS",
-    subtitle: "Manage the how-to-order floe",
+  "/admin/promotions": {
+    title: "Promotions",
+    subtitle: "Manage homepage promotional slides",
   },
 };
 
@@ -33,10 +33,7 @@ const AdminPanel = () => {
 
   return (
     <div className="flex min-h-dvh bg-black lg:h-screen lg:overflow-hidden">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col lg:overflow-hidden">
         <header className="flex min-h-18 items-center gap-3 border-b border-white/5 px-4 sm:px-6 lg:shrink-0">

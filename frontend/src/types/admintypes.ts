@@ -73,3 +73,14 @@ export type ReorderableMediaItemProps = {
   onRemoveThumbnail: (key: string) => void;
   onAddThumbnail: (key: string, file: File | undefined) => void;
 };
+
+export type PromotionFormValues = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cta_label: string;
+  cta_link: string;
+  sort_order: number;
+  is_active: boolean;
+  imageFile: File | null;
+};

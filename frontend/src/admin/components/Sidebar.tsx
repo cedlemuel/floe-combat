@@ -1,6 +1,6 @@
 import { FaTshirt } from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
-import { FaVideo } from "react-icons/fa";
+import { FaVideo, FaBullhorn } from "react-icons/fa";
 import { FaRegStar } from "react-icons/fa";
 import { FaTimes } from "react-icons/fa";
 import { NavLink, useLocation } from "react-router-dom";
@@ -106,7 +106,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           <div className="px-5 py-2 font-montserrat text-[12px] tracking-[2px] text-descText2">
             OVERVIEW
           </div>
-
           <NavLink
             to="/admin/dashboard"
             end
@@ -118,18 +117,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               Dashboard
             </span>
           </NavLink>
-
           <div className="px-5 py-2 mt-2 font-montserrat text-[12px] tracking-[2px] text-descText2">
             CONTENT
           </div>
-
           <NavLink to="/admin/products" className={navClass} onClick={onClose}>
             <FaTshirt size={20} />
             <span className="font-montserrat text-sm tracking-wider">
               Products
             </span>
           </NavLink>
-
           <NavLink
             to="/admin/highlights"
             className={navClass}
@@ -140,7 +136,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               Highlights
             </span>
           </NavLink>
-
           <NavLink to="/admin/reviews" className={navClass} onClick={onClose}>
             <FaRegStar size={20} />
             <span className="font-montserrat text-sm tracking-wider">
@@ -152,6 +147,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 {pendingReviewCount}
               </span>
             )}
+          </NavLink>
+
+          <NavLink
+            to="/admin/promotions"
+            className={navClass}
+            onClick={onClose}
+          >
+            <FaBullhorn size={20} />
+            <span className="font-montserrat text-sm tracking-wider">
+              Promotions
+            </span>
           </NavLink>
         </nav>
 

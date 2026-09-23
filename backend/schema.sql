@@ -101,3 +101,26 @@ CREATE TABLE admin_activity_logs (
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE promo_slides (
+  id SERIAL PRIMARY KEY,
+
+  image_url TEXT NOT NULL,
+  image_public_id TEXT NOT NULL UNIQUE,
+
+  eyebrow VARCHAR(100) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  subtitle TEXT NOT NULL,
+
+  cta_label VARCHAR(100) NOT NULL,
+  cta_link VARCHAR(255) NOT NULL,
+
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX promo_slides_sort_order_idx
+ON promo_slides(sort_order);

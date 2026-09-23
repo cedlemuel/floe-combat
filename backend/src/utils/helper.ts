@@ -1,5 +1,4 @@
 import cloudinary from "../config/cloudinary.js";
-import { deleteProductImage } from "../service/cloudinary.service.js";
 import type { NewProductImage } from "../types/product.js";
 
 const parseSizes = (sizes: unknown): string[] | null => {
@@ -119,6 +118,14 @@ const validateProductCategory = (
   };
 };
 
+const isNonEmptyString = (value: unknown): value is string => {
+  return typeof value === "string" && value.trim().length > 0;
+};
+
+const isPromoPublicId = (value: string) => {
+  return value.startsWith("floe-combat/promotions/");
+};
+
 export {
   parseSizes,
   parseDeletedImageIds,
@@ -126,4 +133,6 @@ export {
   getHighlightVideoThumbnail,
   productCategories,
   validateProductCategory,
+  isNonEmptyString,
+  isPromoPublicId,
 };

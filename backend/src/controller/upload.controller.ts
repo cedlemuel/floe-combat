@@ -35,6 +35,12 @@ const uploadConfigs: Record<
     resourceType: "image",
     allowedFormats: ["jpg", "jpeg", "png", "webp"],
   },
+
+  "promo-image": {
+    folder: "floe-combat/promotions",
+    resourceType: "image",
+    allowedFormats: ["jpg", "jpeg", "png", "webp"],
+  },
 };
 
 const createUploadSignatureController = (req: Request, res: Response) => {
@@ -93,6 +99,10 @@ const isAllowedCleanupAsset = (
   }
 
   if (publicId.startsWith("floe-combat/products/")) {
+    return resourceType === "image";
+  }
+
+  if (publicId.startsWith("floe-combat/promotions/")) {
     return resourceType === "image";
   }
 
