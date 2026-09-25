@@ -7,6 +7,7 @@ import ProductPreviewModal from "../common/ProductPreviewModal";
 import ProductSkeleton from "../common/ProductSkeleton";
 import Pagination from "../common/Pagination";
 import { categories } from "../../types/types";
+import usePagination from "../../hooks/usePagination";
 
 const getPrimaryImageUrl = (product: Product) => {
   return (
@@ -26,9 +27,6 @@ const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const itemsPerPage = 6;
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -90,11 +88,16 @@ const Products = () => {
     return product.category === activeCategory;
   });
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: currentProducts,
+    setCurrentPage,
+  } = usePagination(filtered, {
+    pageSize: 6,
+  });
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-
-  const currentProducts = filtered.slice(startIndex, startIndex + itemsPerPage);
+  const itemsPerPage = 6;
 
   const emptySlots = itemsPerPage - currentProducts.length;
 
