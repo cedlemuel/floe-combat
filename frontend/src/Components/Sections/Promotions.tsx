@@ -43,29 +43,52 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
 
   if (!slide) return null;
 
+  const ctaClassName =
+    "group inline-flex max-w-45 items-center gap-2 truncate font-montserrat text-[9px] font-bold uppercase tracking-[1.5px] text-white transition hover:text-floesky sm:max-w-none sm:gap-3 sm:text-[10px] sm:tracking-[2px] lg:text-xs";
+
   return (
-    <div className="w-full max-w-7xl">
+    <div
+      className="
+        w-full
+        max-w-7xl
+        lg:max-w-[min(80rem,calc((100dvh-22rem)*21/9))]
+      "
+    >
       <div className="overflow-hidden border border-borderColor bg-black">
         {/* HEADER */}
-        <div className="border-b border-borderColor px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-          <div className="mb-5 flex items-center justify-between sm:mb-7">
+        <div className="border-b border-borderColor px-4 py-4 sm:px-8 sm:py-6 lg:px-10 lg:py-7">
+          <div className="mb-3 flex items-center justify-between gap-4 sm:mb-5">
             <AnimatePresence mode="wait">
               <motion.span
                 key={`eyebrow-${slide.id}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-                className="font-montserrat text-[10px] font-bold uppercase tracking-[3px] text-floesky sm:text-xs"
+                initial={{
+                  opacity: 0,
+                  y: 6,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  y: -6,
+                }}
+                transition={{
+                  duration: 0.3,
+                  ease: "easeOut",
+                }}
+                className="min-w-0 truncate font-montserrat text-[9px] font-bold uppercase tracking-[2px] text-floesky sm:text-xs sm:tracking-[3px]"
               >
                 {slide.eyebrow}
               </motion.span>
             </AnimatePresence>
 
             {slides.length > 1 && (
-              <span className="font-montserrat text-[10px] font-bold tracking-[2px] text-white/30">
+              <span className="shrink-0 font-montserrat text-[9px] font-bold tracking-[1.5px] text-white/30 sm:text-[10px] sm:tracking-[2px]">
                 {String(index + 1).padStart(2, "0")}
-                <span className="mx-2 text-white/10">/</span>
+
+                <span className="mx-1.5 text-white/10 sm:mx-2">/</span>
+
                 {String(slides.length).padStart(2, "0")}
               </span>
             )}
@@ -90,14 +113,14 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
                 duration: 0.35,
                 ease: "easeOut",
               }}
-              className="grid gap-4 lg:grid-cols-[1fr_0.7fr] lg:items-end lg:gap-16"
+              className="grid gap-2 sm:gap-3 lg:grid-cols-[1fr_0.7fr] lg:items-end lg:gap-12"
             >
-              <h2 className="whitespace-nowrap font-archivo text-4xl font-bold leading-none tracking-tighter text-white sm:text-5xl lg:text-6xl">
+              <h2 className="whitespace-nowrap font-archivo text-[clamp(1.75rem,4vw,3.5rem)] font-bold leading-none tracking-tighter text-white">
                 {slide.title}
               </h2>
 
               {slide.subtitle && (
-                <p className="max-w-lg font-montserrat text-xs leading-6 text-white/45 sm:text-sm lg:justify-self-end">
+                <p className="max-w-lg font-montserrat text-[11px] leading-5 text-white/45 sm:text-sm sm:leading-6 lg:justify-self-end">
                   {slide.subtitle}
                 </p>
               )}
@@ -105,8 +128,8 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
           </AnimatePresence>
         </div>
 
-        {/* STATIC IMAGE SHELL */}
-        <div className="relative h-128 overflow-hidden bg-[#080808]">
+        {/* 21:9 LANDSCAPE IMAGE */}
+        <div className="relative aspect-21/9 w-full overflow-hidden bg-[#080808]">
           <AnimatePresence initial={false} custom={direction} mode="sync">
             <motion.img
               key={slide.id}
@@ -135,8 +158,9 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
         </div>
 
         {/* FOOTER */}
-        <div className="flex min-h-18 items-center justify-between gap-4 border-t border-borderColor px-5 py-4 sm:px-8 lg:px-12">
-          <div>
+        <div className="flex min-h-14 items-center justify-between gap-3 border-t border-borderColor px-4 py-3 sm:min-h-16 sm:px-8 lg:px-10">
+          {/* CTA */}
+          <div className="min-w-0">
             <AnimatePresence mode="wait">
               {slide.cta_label && slide.cta_link && (
                 <motion.div
@@ -157,28 +181,26 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
                     duration: 0.3,
                     ease: "easeOut",
                   }}
+                  className="min-w-0"
                 >
                   {isExternalLink(slide.cta_link) ? (
                     <a
                       href={slide.cta_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group inline-flex items-center gap-3 font-montserrat text-[10px] font-bold uppercase tracking-[2px] text-white transition hover:text-floesky sm:text-xs"
+                      className={ctaClassName}
                     >
-                      {slide.cta_label}
+                      <span className="truncate">{slide.cta_label}</span>
 
-                      <span className="text-floesky transition-transform duration-300 group-hover:translate-x-1">
+                      <span className="shrink-0 text-floesky transition-transform duration-300 group-hover:translate-x-1">
                         →
                       </span>
                     </a>
                   ) : (
-                    <Link
-                      to={slide.cta_link}
-                      className="group inline-flex items-center gap-3 font-montserrat text-[10px] font-bold uppercase tracking-[2px] text-white transition hover:text-floesky sm:text-xs"
-                    >
-                      {slide.cta_label}
+                    <Link to={slide.cta_link} className={ctaClassName}>
+                      <span className="truncate">{slide.cta_label}</span>
 
-                      <span className="text-floesky transition-transform duration-300 group-hover:translate-x-1">
+                      <span className="shrink-0 text-floesky transition-transform duration-300 group-hover:translate-x-1">
                         →
                       </span>
                     </Link>
@@ -188,8 +210,10 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
             </AnimatePresence>
           </div>
 
+          {/* NAVIGATION */}
           {slides.length > 1 && (
-            <div className="flex items-center gap-5">
+            <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+              {/* PROGRESS */}
               <div className="hidden items-center gap-1.5 sm:flex">
                 {slides.map((item, i) => (
                   <button
@@ -206,12 +230,13 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
                 ))}
               </div>
 
+              {/* ARROWS */}
               <div className="flex">
                 <button
                   type="button"
                   onClick={() => goTo(index - 1)}
                   aria-label="Previous slide"
-                  className="flex h-9 w-9 items-center justify-center border border-borderColor text-white/50 transition hover:border-white/30 hover:text-white sm:h-10 sm:w-10"
+                  className="flex h-8 w-8 items-center justify-center border border-borderColor text-white/50 transition hover:border-white/30 hover:text-white sm:h-9 sm:w-9"
                 >
                   <FaChevronLeft size={11} />
                 </button>
@@ -220,7 +245,7 @@ const PromoCarousel = ({ slides }: PromoCarouselProps) => {
                   type="button"
                   onClick={() => goTo(index + 1)}
                   aria-label="Next slide"
-                  className="-ml-px flex h-9 w-9 items-center justify-center border border-borderColor text-white/50 transition hover:border-white/30 hover:text-white sm:h-10 sm:w-10"
+                  className="-ml-px flex h-8 w-8 items-center justify-center border border-borderColor text-white/50 transition hover:border-white/30 hover:text-white sm:h-9 sm:w-9"
                 >
                   <FaChevronRight size={11} />
                 </button>
