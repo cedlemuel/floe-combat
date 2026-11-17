@@ -10,8 +10,12 @@ import {
 } from "../service/promotion.service.js";
 
 import { deleteCloudinaryAsset } from "../service/cloudinary.service.js";
-import { isNonEmptyString } from "../utils/helper.js";
-import { isPromoPublicId } from "../utils/helper.js";
+
+import {
+  isNonEmptyString,
+  isPromoPublicId,
+  isValidCtaLink,
+} from "../utils/helper.js";
 
 const getPromoSlidesController = async (_req: Request, res: Response) => {
   try {
@@ -59,6 +63,7 @@ const getPromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "Promo slide ID must be a positive integer.",
     });
+
     return;
   }
 
@@ -70,6 +75,7 @@ const getPromoSlideController = async (req: Request, res: Response) => {
         success: false,
         message: "Promo slide not found.",
       });
+
       return;
     }
 
@@ -109,12 +115,14 @@ const createPromoSlideController = async (req: Request, res: Response) => {
     !isNonEmptyString(title) ||
     !isNonEmptyString(subtitle) ||
     !isNonEmptyString(ctaLabel) ||
-    !isNonEmptyString(ctaLink)
+    !isNonEmptyString(ctaLink) ||
+    !isValidCtaLink(ctaLink)
   ) {
     res.status(400).json({
       success: false,
       message: "Invalid promo slide data.",
     });
+
     return;
   }
 
@@ -128,17 +136,27 @@ const createPromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "One or more promo slide fields are too long.",
     });
+
     return;
   }
 
-  const parsedSortOrder =
-    typeof sortOrder === "number" &&
-    Number.isSafeInteger(sortOrder) &&
-    sortOrder >= 0
-      ? sortOrder
-      : 0;
+  const parsedSortOrder = sortOrder === undefined ? 0 : sortOrder;
 
-  const parsedIsActive = typeof isActive === "boolean" ? isActive : true;
+  const parsedIsActive = isActive === undefined ? true : isActive;
+
+  if (
+    typeof parsedSortOrder !== "number" ||
+    !Number.isSafeInteger(parsedSortOrder) ||
+    parsedSortOrder < 0 ||
+    typeof parsedIsActive !== "boolean"
+  ) {
+    res.status(400).json({
+      success: false,
+      message: "Invalid promo slide data.",
+    });
+
+    return;
+  }
 
   try {
     const slide = await createPromoSlide({
@@ -161,11 +179,15 @@ const createPromoSlideController = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
 
-    try {
-      await deleteCloudinaryAsset(imagePublicId.trim(), "image");
-    } catch (cleanupError) {
-      console.error("Failed to cleanup promo image:", cleanupError);
-    }
+    /*
+      Do not directly delete imagePublicId here.
+
+      The frontend cleanup endpoint should handle newly uploaded,
+      unreferenced Cloudinary assets safely.
+
+      Direct deletion here could remove an image that is already
+      referenced by another promo if a UNIQUE constraint error occurs.
+    */
 
     res.status(500).json({
       success: false,
@@ -182,6 +204,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "Promo slide ID must be a positive integer.",
     });
+
     return;
   }
 
@@ -206,6 +229,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
     !isNonEmptyString(subtitle) ||
     !isNonEmptyString(ctaLabel) ||
     !isNonEmptyString(ctaLink) ||
+    !isValidCtaLink(ctaLink) ||
     typeof sortOrder !== "number" ||
     !Number.isSafeInteger(sortOrder) ||
     sortOrder < 0 ||
@@ -215,6 +239,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "Invalid promo slide data.",
     });
+
     return;
   }
 
@@ -228,6 +253,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "One or more promo slide fields are too long.",
     });
+
     return;
   }
 
@@ -239,6 +265,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
         success: false,
         message: "Promo slide not found.",
       });
+
       return;
     }
 
@@ -259,6 +286,7 @@ const updatePromoSlideController = async (req: Request, res: Response) => {
         success: false,
         message: "Promo slide not found.",
       });
+
       return;
     }
 
@@ -293,6 +321,7 @@ const deletePromoSlideController = async (req: Request, res: Response) => {
       success: false,
       message: "Promo slide ID must be a positive integer.",
     });
+
     return;
   }
 
@@ -304,6 +333,7 @@ const deletePromoSlideController = async (req: Request, res: Response) => {
         success: false,
         message: "Promo slide not found.",
       });
+
       return;
     }
 

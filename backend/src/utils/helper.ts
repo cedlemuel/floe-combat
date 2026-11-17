@@ -126,6 +126,24 @@ const isPromoPublicId = (value: string) => {
   return value.startsWith("floe-combat/promotions/");
 };
 
+const isValidCtaLink = (value: string): boolean => {
+  const link = value.trim();
+
+  // Internal React Router route
+  if (link.startsWith("/") && !link.startsWith("//")) {
+    return true;
+  }
+
+  // External URL
+  try {
+    const url = new URL(link);
+
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+};
+
 export {
   parseSizes,
   parseDeletedImageIds,
@@ -135,4 +153,5 @@ export {
   validateProductCategory,
   isNonEmptyString,
   isPromoPublicId,
+  isValidCtaLink,
 };

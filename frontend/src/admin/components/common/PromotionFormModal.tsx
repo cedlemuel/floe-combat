@@ -1,5 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 
 import {
   FaTimes,
@@ -25,6 +31,24 @@ const emptyForm: PromotionFormValues = {
   imageFile: null,
 };
 
+const isValidCtaLink = (value: string): boolean => {
+  const link = value.trim();
+
+  // Internal route
+  if (link.startsWith("/") && !link.startsWith("//")) {
+    return true;
+  }
+
+  // External URL
+  try {
+    const url = new URL(link);
+
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+};
+
 const PromotionFormModal = ({
   isOpen,
   editingPromotion,
@@ -37,6 +61,7 @@ const PromotionFormModal = ({
 
   const [previewUrl, setPreviewUrl] = useState("");
   const [imageError, setImageError] = useState("");
+  const [ctaLinkError, setCtaLinkError] = useState("");
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -52,6 +77,8 @@ const PromotionFormModal = ({
     }
 
     setImageError("");
+    setCtaLinkError("");
+    setIsDragging(false);
 
     if (editingPromotion) {
       setForm({
@@ -67,7 +94,7 @@ const PromotionFormModal = ({
 
       setPreviewUrl(editingPromotion.image_url);
     } else {
-      setForm(emptyForm);
+      setForm({ ...emptyForm });
       setPreviewUrl("");
     }
 
@@ -132,25 +159,55 @@ const PromotionFormModal = ({
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+
+    if (isSubmitting) return;
 
     setIsDragging(false);
 
     handleFileSelect(e.dataTransfer.files?.[0]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
     if (isSubmitting) return;
 
-    if (!form.title.trim() || !previewUrl) return;
+    if (
+      !previewUrl ||
+      !form.eyebrow.trim() ||
+      !form.title.trim() ||
+      !form.subtitle.trim() ||
+      !form.cta_label.trim() ||
+      !form.cta_link.trim()
+    ) {
+      return;
+    }
+
+    if (!isValidCtaLink(form.cta_link)) {
+      setCtaLinkError(
+        "Enter an internal path like /products or a full URL beginning with https://",
+      );
+
+      return;
+    }
+
+    setCtaLinkError("");
 
     onSubmit(form);
   };
 
   const isEditing = editingPromotion !== null;
+
+  const isFormValid =
+    Boolean(previewUrl) &&
+    Boolean(form.eyebrow.trim()) &&
+    Boolean(form.title.trim()) &&
+    Boolean(form.subtitle.trim()) &&
+    Boolean(form.cta_label.trim()) &&
+    Boolean(form.cta_link.trim()) &&
+    isValidCtaLink(form.cta_link);
 
   return (
     <AnimatePresence>
@@ -159,7 +216,11 @@ const PromotionFormModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={() => {
+            if (!isSubmitting) {
+              onClose();
+            }
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-xs sm:p-4"
         >
           <motion.form
@@ -183,6 +244,7 @@ const PromotionFormModal = ({
             onSubmit={handleSubmit}
             className="relative my-auto flex w-full max-w-lg flex-col border border-borderColor bg-black"
           >
+            {/* HEADER */}
             <div className="flex items-center justify-between border-b border-borderColor px-4 py-4 sm:px-6">
               <h2 className="font-montserrat text-sm font-bold tracking-[2px] text-white">
                 {isEditing ? "EDIT SLIDE" : "ADD SLIDE"}
@@ -193,13 +255,15 @@ const PromotionFormModal = ({
                 onClick={onClose}
                 disabled={isSubmitting}
                 aria-label="Close"
-                className="w-8 h-8 flex items-center justify-center text-descText hover:text-white transition"
+                className="flex h-8 w-8 items-center justify-center text-descText transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FaTimes size={14} />
               </button>
             </div>
 
+            {/* CONTENT */}
             <div className="custom-scroll flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-4 py-5 sm:px-6">
+              {/* IMAGE */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   IMAGE
@@ -215,11 +279,11 @@ const PromotionFormModal = ({
                 />
 
                 {previewUrl ? (
-                  <div className="relative w-full aspect-video overflow-hidden rounded-sm border border-borderColor bg-white/5 group">
+                  <div className="group relative aspect-video w-full overflow-hidden rounded-sm border border-borderColor bg-white/5">
                     <img
                       src={previewUrl}
                       alt="Preview"
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
 
                     <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
@@ -227,7 +291,7 @@ const PromotionFormModal = ({
                         type="button"
                         disabled={isSubmitting}
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 font-montserrat text-[11px] text-white backdrop-blur-sm hover:bg-white/20 transition"
+                        className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 font-montserrat text-[11px] text-white backdrop-blur-sm transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <FaCloudUploadAlt size={12} />
                         CHANGE
@@ -237,7 +301,7 @@ const PromotionFormModal = ({
                         type="button"
                         disabled={isSubmitting}
                         onClick={handleRemoveImage}
-                        className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 font-montserrat text-[11px] text-white backdrop-blur-sm hover:bg-red-500/60 transition"
+                        className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 font-montserrat text-[11px] text-white backdrop-blur-sm transition hover:bg-red-500/60 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <FaTrash size={11} />
                         REMOVE
@@ -260,7 +324,7 @@ const PromotionFormModal = ({
                     }}
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDrop}
-                    className={`flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-sm border border-dashed cursor-pointer transition ${
+                    className={`flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border border-dashed transition ${
                       isDragging
                         ? "border-floesky bg-floesky/5"
                         : "border-borderColor bg-white/2 hover:border-floesky"
@@ -293,12 +357,14 @@ const PromotionFormModal = ({
                 )}
               </div>
 
+              {/* EYEBROW */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   EYEBROW
                 </label>
 
                 <input
+                  required
                   value={form.eyebrow}
                   maxLength={100}
                   disabled={isSubmitting}
@@ -309,10 +375,11 @@ const PromotionFormModal = ({
                     }))
                   }
                   placeholder="e.g. NEW ARRIVALS"
-                  className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                  className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
                 />
               </div>
 
+              {/* TITLE */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   TITLE
@@ -329,17 +396,19 @@ const PromotionFormModal = ({
                       title: e.target.value,
                     }))
                   }
-                  placeholder="e.g. THE VORTEX"
-                  className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                  placeholder="e.g. NIGHT LOTUS"
+                  className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
                 />
               </div>
 
+              {/* SUBTITLE */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-montserrat text-[11px] tracking-wider text-descText">
                   SUBTITLE
                 </label>
 
                 <textarea
+                  required
                   value={form.subtitle}
                   disabled={isSubmitting}
                   onChange={(e) =>
@@ -348,19 +417,26 @@ const PromotionFormModal = ({
                       subtitle: e.target.value,
                     }))
                   }
-                  rows={2}
+                  rows={3}
                   placeholder="Short supporting line..."
-                  className="resize-none border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                  className="min-h-24 max-h-60 resize-y border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm leading-relaxed text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
                 />
+
+                <span className="font-montserrat text-[10px] text-descText2">
+                  Drag the bottom-right corner to expand.
+                </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* CTA */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* CTA LABEL */}
                 <div className="flex flex-col gap-1.5">
                   <label className="font-montserrat text-[11px] tracking-wider text-descText">
                     CTA LABEL
                   </label>
 
                   <input
+                    required
                     value={form.cta_label}
                     maxLength={100}
                     disabled={isSubmitting}
@@ -371,31 +447,65 @@ const PromotionFormModal = ({
                       }))
                     }
                     placeholder="e.g. SHOP NOW"
-                    className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                    className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:border-floesky/40 focus:outline-none"
                   />
                 </div>
 
+                {/* CTA LINK */}
                 <div className="flex flex-col gap-1.5">
                   <label className="font-montserrat text-[11px] tracking-wider text-descText">
                     CTA LINK
                   </label>
 
                   <input
+                    required
                     value={form.cta_link}
                     maxLength={255}
                     disabled={isSubmitting}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target.value;
+
                       setForm((f) => ({
                         ...f,
-                        cta_link: e.target.value,
-                      }))
-                    }
-                    placeholder="/products"
-                    className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                        cta_link: value,
+                      }));
+
+                      if (ctaLinkError) {
+                        setCtaLinkError("");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (
+                        form.cta_link.trim() &&
+                        !isValidCtaLink(form.cta_link)
+                      ) {
+                        setCtaLinkError(
+                          "Use /products or a full https:// URL.",
+                        );
+                      }
+                    }}
+                    placeholder="/products or https://..."
+                    className={`border bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none ${
+                      ctaLinkError
+                        ? "border-red-400/60 focus:border-red-400"
+                        : "border-borderColor focus:border-floesky/40"
+                    }`}
                   />
+
+                  {ctaLinkError && (
+                    <span className="font-montserrat text-[10px] leading-relaxed text-red-400/70">
+                      {ctaLinkError}
+                    </span>
+                  )}
                 </div>
               </div>
 
+              <span className="font-montserrat text-[10px] leading-relaxed text-descText2">
+                CTA links can use an internal route such as /products or a full
+                external URL such as https://facebook.com/...
+              </span>
+
+              {/* SORT ORDER / ACTIVE */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-montserrat text-[11px] tracking-wider text-descText">
@@ -413,7 +523,7 @@ const PromotionFormModal = ({
                         sort_order: Number(e.target.value),
                       }))
                     }
-                    className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white placeholder:text-descText2 focus:outline-none focus:border-floesky/40"
+                    className="border border-borderColor bg-white/2 px-3 py-2.5 font-montserrat text-sm text-white focus:border-floesky/40 focus:outline-none"
                   />
                 </div>
 
@@ -438,6 +548,7 @@ const PromotionFormModal = ({
                 </label>
               </div>
 
+              {/* API ERROR */}
               {error && (
                 <span className="font-montserrat text-[11px] text-red-400/70">
                   {error}
@@ -445,19 +556,20 @@ const PromotionFormModal = ({
               )}
             </div>
 
+            {/* FOOTER */}
             <div className="flex items-center justify-end gap-1.5 border-t border-white/5 px-4 py-4 sm:gap-3 sm:px-6">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 font-montserrat text-xs tracking-wider text-descText hover:text-white transition"
+                className="px-4 py-2.5 font-montserrat text-xs tracking-wider text-descText transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 CANCEL
               </button>
 
               <button
                 type="submit"
-                disabled={isSubmitting || !form.title.trim() || !previewUrl}
+                disabled={isSubmitting || !isFormValid}
                 className="flex items-center justify-center gap-2 rounded-sm bg-floesky px-5 py-2.5 font-montserrat text-xs font-bold tracking-wider text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting && (

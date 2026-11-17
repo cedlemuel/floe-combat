@@ -21,7 +21,7 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Manage customer reviews",
   },
   "/admin/promotions": {
-    title: "Promotions",
+    title: "PROMOTIONS",
     subtitle: "Manage homepage promotional slides",
   },
 };
